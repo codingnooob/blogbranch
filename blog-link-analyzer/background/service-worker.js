@@ -30,6 +30,11 @@
   // Store blog data for a tab
   async function storeBlogData(tabId, data) {
     try {
+      console.log(`Blog Link Analyzer: Storing data for tab ${tabId}:`, {
+        isBlog: data.isBlog,
+        linkCount: data.blogLinks ? data.blogLinks.length : 0
+      });
+      
       const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
       
@@ -42,20 +47,39 @@
         [STORAGE_KEYS.BLOG_DATA]: blogData
       });
 
-      console.log(`Blog Link Analyzer: Stored data for tab ${tabId}`);
+      console.log(`Blog Link Analyzer: Successfully stored data for tab ${tabId}`);
     } catch (error) {
-      console.error('Blog Link Analyzer: Error storing blog data:', error);
+      console.error('Blog Link Analyzer: Error storing blog data:', {
+        error: error.message,
+        tabId: tabId,
+        stack: error.stack
+      });
     }
   }
 
   // Get blog data for a tab
   async function getBlogData(tabId) {
     try {
+      console.log(`Blog Link Analyzer: Getting blog data for tab ${tabId}`);
+      
       const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
-      return blogData[tabId] || null;
+      const data = blogData[tabId] || null;
+      
+      console.log(`Blog Link Analyzer: Retrieved blog data for tab ${tabId}:`, {
+        hasData: !!data,
+        isBlog: data?.isBlog,
+        linkCount: data?.blogLinks ? data.blogLinks.length : 0,
+        lastUpdated: data?.lastUpdated
+      });
+      
+      return data;
     } catch (error) {
-      console.error('Blog Link Analyzer: Error getting blog data:', error);
+      console.error('Blog Link Analyzer: Error getting blog data:', {
+        error: error.message,
+        tabId: tabId,
+        stack: error.stack
+      });
       return null;
     }
   }
@@ -90,6 +114,8 @@
 
   // Handle messages from content scripts and popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Blog Link Analyzer: Received message:', message.type, 'from tab:', sender.tab?.id);
+    
     (async () => {
       try {
         switch (message.type) {
@@ -104,7 +130,11 @@
             break;
 
           case 'BLOG_LINKS_EXTRACTED':
-            console.log('Blog Link Analyzer: Links extracted', message.payload);
+            console.log('Blog Link Analyzer: Links extracted', {
+              linkCount: message.payload.blogLinks ? message.payload.blogLinks.length : 0,
+              url: message.payload.url
+            });
+            
             const existingData = await getBlogData(sender.tab.id);
             await storeBlogData(sender.tab.id, {
               ...existingData,
@@ -115,21 +145,34 @@
             break;
 
           case 'GET_BLOG_DATA':
+            console.log('Blog Link Analyzer: Requesting blog data for tab:', message.tabId);
             const data = await getBlogData(message.tabId);
+            console.log('Blog Link Analyzer: Retrieved blog data:', {
+              hasData: !!data,
+              isBlog: data?.isBlog,
+              linkCount: data?.blogLinks ? data.blogLinks.length : 0
+            });
             sendResponse({ success: true, data: data });
             break;
 
           case 'FETCH_NESTED_LINKS':
             // This would be implemented for nested link expansion
+            console.log('Blog Link Analyzer: Fetching nested links for:', message.url);
             const nestedData = await fetchNestedLinksForUrl(message.url);
             sendResponse({ success: true, data: nestedData });
             break;
 
           default:
+            console.warn('Blog Link Analyzer: Unknown message type:', message.type);
             sendResponse({ success: false, error: 'Unknown message type' });
         }
       } catch (error) {
-        console.error('Blog Link Analyzer: Message handling error:', error);
+        console.error('Blog Link Analyzer: Message handling error:', {
+          error: error.message,
+          messageType: message.type,
+          tabId: sender.tab?.id,
+          stack: error.stack
+        });
         sendResponse({ success: false, error: error.message });
       }
     })();

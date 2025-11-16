@@ -150,30 +150,50 @@
 
   // Initialize blog detection
   function initializeBlogDetection() {
-    const blogInfo = isBlogPost();
-    
-    if (blogInfo.isBlog) {
-      console.log('Blog Link Analyzer: Blog post detected', blogInfo);
+    try {
+      console.log('Blog Link Analyzer: Starting blog detection...');
+      const blogInfo = isBlogPost();
       
-      // Store blog info for other scripts
-      window.blogLinkAnalyzerData = {
-        isBlog: true,
-        blogInfo: blogInfo,
-        mainContent: getMainContent()
-      };
+      if (blogInfo.isBlog) {
+        console.log('Blog Link Analyzer: Blog post detected', blogInfo);
+        
+        // Store blog info for other scripts
+        window.blogLinkAnalyzerData = {
+          isBlog: true,
+          blogInfo: blogInfo,
+          mainContent: getMainContent()
+        };
 
-      // Send message to background script
-      if (typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.runtime.sendMessage({
-          type: 'BLOG_DETECTED',
-          payload: blogInfo
-        });
+        // Send message to background script with error handling
+        try {
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage({
+              type: 'BLOG_DETECTED',
+              payload: blogInfo
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('Blog Link Analyzer: Error sending blog detected message:', chrome.runtime.lastError);
+              } else {
+                console.log('Blog Link Analyzer: Blog detected message sent successfully');
+              }
+            });
+          }
+        } catch (messageError) {
+          console.error('Blog Link Analyzer: Failed to send blog detected message:', messageError);
+        }
+      } else {
+        console.log('Blog Link Analyzer: Not a blog post', blogInfo);
+        window.blogLinkAnalyzerData = {
+          isBlog: false,
+          blogInfo: blogInfo
+        };
       }
-    } else {
-      console.log('Blog Link Analyzer: Not a blog post', blogInfo);
+    } catch (error) {
+      console.error('Blog Link Analyzer: Critical error in blog detection:', error);
+      // Store minimal data to prevent complete failure
       window.blogLinkAnalyzerData = {
         isBlog: false,
-        blogInfo: blogInfo
+        blogInfo: { isBlog: false, confidence: 0, error: error.message }
       };
     }
   }

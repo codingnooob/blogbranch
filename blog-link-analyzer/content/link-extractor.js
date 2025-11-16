@@ -163,22 +163,32 @@
   // Fetch metadata for a blog post URL
   async function fetchBlogPostMetadata(url) {
     try {
-      // Use a CORS proxy or fetch the page content
-      // For now, we'll use a simplified approach with basic info
-      const response = await fetch(url, {
-        method: 'HEAD',
-        mode: 'no-cors' // We'll need a different approach for cross-origin
-      });
+      // Validate URL first
+      if (!url || typeof url !== 'string') {
+        throw new Error('Invalid URL provided');
+      }
 
-      // Since we can't directly fetch due to CORS, we'll extract basic info
-      const urlObj = new URL(url, window.location.href);
+      // Since we can't directly fetch due to CORS, we'll extract basic info from URL
+      let urlObj;
+      try {
+        urlObj = new URL(url, window.location.href);
+      } catch (urlError) {
+        throw new Error(`Invalid URL format: ${urlError.message}`);
+      }
+
       const pathSegments = urlObj.pathname.split('/').filter(segment => segment);
-      const lastSegment = pathSegments[pathSegments.length - 1];
       
-      // Generate a title from the URL slug
-      const title = lastSegment
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, l => l.toUpperCase());
+      // Safely get the last segment
+      const lastSegment = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : '';
+      
+      // Generate a title from the URL slug with proper validation
+      let title = 'Unknown Title';
+      if (lastSegment && typeof lastSegment === 'string') {
+        title = lastSegment
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase())
+          .substring(0, 100); // Limit length
+      }
 
       return {
         title: title,
@@ -188,40 +198,72 @@
         extracted: true
       };
     } catch (error) {
-      console.error('Error fetching blog post metadata:', error);
+      console.error('Blog Link Analyzer: Error fetching blog post metadata:', error);
       return {
         title: null,
         author: null,
-        url: url,
+        url: url || 'unknown',
         timestamp: Date.now(),
         extracted: false,
         error: error.message
       };
     }
   }
+  }
 
   // Extract metadata for all blog links
   async function extractAllBlogLinkMetadata() {
-    const blogLinks = extractBlogLinks();
-    const metadataPromises = blogLinks.map(async (link) => {
-      if (link.isInternal) {
-        // For internal links, we can try to extract more info
+    try {
+      const blogLinks = extractBlogLinks();
+      console.log(`Blog Link Analyzer: Processing ${blogLinks.length} blog links for metadata`);
+      
+      const metadataPromises = blogLinks.map(async (link, index) => {
         try {
-          const metadata = await fetchBlogPostMetadata(link.href);
-          return {
-            ...link,
-            title: metadata.title || link.text,
-            author: metadata.author,
-            extracted: metadata.extracted
-          };
+          // Validate link object
+          if (!link || !link.href) {
+            console.warn(`Blog Link Analyzer: Invalid link at index ${index}:`, link);
+            return null;
+          }
+
+          if (link.isInternal) {
+            // For internal links, we can try to extract more info
+            const metadata = await fetchBlogPostMetadata(link.href);
+            return {
+              ...link,
+              title: metadata.title || link.text || 'Unknown Title',
+              author: metadata.author,
+              extracted: metadata.extracted
+            };
+          } else {
+            // For external links, use link text as title
+            return {
+              ...link,
+              title: link.text || 'Unknown Title',
+              author: null,
+              extracted: false
+            };
+          }
         } catch (error) {
+          console.error(`Blog Link Analyzer: Error processing link ${index}:`, error);
           return {
             ...link,
-            title: link.text,
+            title: link.text || 'Unknown Title',
             author: null,
-            extracted: false
+            extracted: false,
+            error: error.message
           };
         }
+      });
+
+      const results = await Promise.all(metadataPromises);
+      const validResults = results.filter(link => link && link.title); // Filter out invalid links
+      console.log(`Blog Link Analyzer: Successfully processed ${validResults.length} out of ${blogLinks.length} links`);
+      return validResults;
+    } catch (error) {
+      console.error('Blog Link Analyzer: Critical error in extractAllBlogLinkMetadata:', error);
+      return [];
+    }
+  }
       } else {
         // For external links, use the link text as title
         return {
@@ -240,6 +282,8 @@
   // Initialize link extraction
   async function initializeLinkExtraction() {
     try {
+      console.log('Blog Link Analyzer: Starting link extraction initialization...');
+      
       // Wait a bit for the blog detector to finish
       setTimeout(async () => {
         try {
@@ -253,21 +297,35 @@
             // Store results for popup
             window.blogLinkAnalyzerData.blogLinks = blogLinks;
 
-            // Send message to background script
-            if (typeof chrome !== 'undefined' && chrome.runtime) {
-              chrome.runtime.sendMessage({
-                type: 'BLOG_LINKS_EXTRACTED',
-                payload: {
-                  url: window.location.href,
-                  blogLinks: blogLinks,
-                  timestamp: Date.now()
-                }
-              }, (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error('Blog Link Analyzer: Error sending message:', chrome.runtime.lastError);
-                }
-              });
+            // Send message to background script with enhanced error handling
+            try {
+              if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                const message = {
+                  type: 'BLOG_LINKS_EXTRACTED',
+                  payload: {
+                    url: window.location.href,
+                    blogLinks: blogLinks,
+                    timestamp: Date.now()
+                  }
+                };
+                
+                console.log('Blog Link Analyzer: Sending message to background:', message);
+                
+                chrome.runtime.sendMessage(message, (response) => {
+                  if (chrome.runtime.lastError) {
+                    console.error('Blog Link Analyzer: Error sending blog links message:', chrome.runtime.lastError);
+                  } else {
+                    console.log('Blog Link Analyzer: Blog links message sent successfully');
+                  }
+                });
+              } else {
+                console.warn('Blog Link Analyzer: Chrome runtime not available for messaging');
+              }
+            } catch (messageError) {
+              console.error('Blog Link Analyzer: Failed to send blog links message:', messageError);
             }
+          } else {
+            console.log('Blog Link Analyzer: Not a blog post, skipping link extraction');
           }
         } catch (error) {
           console.error('Blog Link Analyzer: Error in link extraction initialization:', error);

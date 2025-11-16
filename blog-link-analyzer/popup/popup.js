@@ -153,32 +153,45 @@
 
   // Load blog data from background script with timeout and retry
   async function loadBlogData() {
+    console.log('Blog Link Analyzer: Starting to load blog data...');
     showLoading();
 
-    try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Data loading timeout')), 5000);
-      });
+    // Add timeout to prevent hanging
+    let loadingTimeout;
+    const timeoutPromise = new Promise((_, reject) => {
+      loadingTimeout = setTimeout(() => {
+        reject(new Error('Data loading timeout after 10 seconds'));
+      }, 10000);
+    });
 
+    try {
       const dataPromise = sendMessage({
         type: 'GET_BLOG_DATA',
         tabId: currentTabId
       });
 
       const response = await Promise.race([dataPromise, timeoutPromise]);
+      clearTimeout(loadingTimeout);
 
-      if (response.success && response.data) {
+      console.log('Blog Link Analyzer: Received response:', response);
+
+      if (response && response.success && response.data) {
         blogData = response.data;
+        console.log('Blog Link Analyzer: Blog data loaded successfully:', {
+          isBlog: blogData.isBlog,
+          linkCount: blogData.blogLinks ? blogData.blogLinks.length : 0
+        });
         displayResults();
       } else {
+        console.log('Blog Link Analyzer: No blog data found');
         showNoResults('No blog data found for this page.');
       }
     } catch (error) {
+      clearTimeout(loadingTimeout);
       console.error('Blog Link Analyzer: Error loading blog data:', error);
       
       // Retry once for network errors
-      if (error.message.includes('timeout') || error.message.includes('network')) {
+      if (error.message.includes('timeout') || error.message.includes('network') || error.message.includes('message channel')) {
         console.log('Blog Link Analyzer: Retrying data load...');
         try {
           const retryResponse = await sendMessage({
@@ -186,7 +199,7 @@
             tabId: currentTabId
           });
           
-          if (retryResponse.success && retryResponse.data) {
+          if (retryResponse && retryResponse.success && retryResponse.data) {
             blogData = retryResponse.data;
             displayResults();
             return;
@@ -202,11 +215,19 @@
 
   // Display results
   function displayResults() {
+    console.log('Blog Link Analyzer: Displaying results...', {
+      hasBlogData: !!blogData,
+      hasBlogLinks: !!(blogData && blogData.blogLinks),
+      linkCount: blogData && blogData.blogLinks ? blogData.blogLinks.length : 0
+    });
+
     if (!blogData || !blogData.blogLinks || blogData.blogLinks.length === 0) {
+      console.log('Blog Link Analyzer: No blog links found, showing no results');
       showNoResults('No blog post links found on this page.');
       return;
     }
 
+    console.log('Blog Link Analyzer: Showing results with', blogData.blogLinks.length, 'links');
     hideAllSections();
     elements.linksSection.style.display = 'block';
 
