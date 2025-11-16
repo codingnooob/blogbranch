@@ -63,11 +63,24 @@
         <button class="retry-button" id="retry-button">Retry Analysis</button>
       </section>
 
+      <!-- Breadcrumb Navigation -->
+      <section class="breadcrumb-section" id="breadcrumb-section" style="display: none;">
+        <div class="breadcrumb-container">
+          <button class="breadcrumb-home" id="breadcrumb-home" title="Back to main results">
+            <span class="icon">🏠</span>
+            <span>Main</span>
+          </button>
+          <div class="breadcrumb-path" id="breadcrumb-path">
+            <!-- Breadcrumb items will be dynamically inserted here -->
+          </div>
+        </div>
+      </section>
+
       <!-- Blog Links List -->
       <section class="links-section" id="links-section" style="display: none;">
         <div class="links-header">
           <span class="links-count" id="filtered-count">0</span>
-          <span class="links-label">filtered posts</span>
+          <span class="links-label" id="links-label">filtered posts</span>
         </div>
         <div class="links-container" id="blog-links">
           <!-- Blog links will be dynamically inserted here -->

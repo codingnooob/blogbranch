@@ -10,6 +10,12 @@
   let filteredLinks = [];
   let expandedItems = new Set();
   let isInitialized = false;
+  
+  // Enhanced state for nested navigation
+  let navigationStack = [];
+  let currentDepth = 0;
+  let currentParentLink = null;
+  let nestedLinkCache = new Map(); // Cache for fetched nested links
 
   // DOM elements
   const elements = {
@@ -30,7 +36,11 @@
     refreshButton: document.getElementById('refresh-button'),
     settingsButton: document.getElementById('settings-button'),
     toast: document.getElementById('toast'),
-    toastMessage: document.getElementById('toast-message')
+    toastMessage: document.getElementById('toast-message'),
+    breadcrumbSection: document.getElementById('breadcrumb-section'),
+    breadcrumbHome: document.getElementById('breadcrumb-home'),
+    breadcrumbPath: document.getElementById('breadcrumb-path'),
+    linksLabel: document.getElementById('links-label')
   };
 
   // Check if Chrome APIs are available
@@ -236,6 +246,9 @@
     hideAllSections();
     elements.linksSection.style.display = 'block';
 
+    // Initialize navigation state
+    navigateToRoot();
+    
     // Update counts
     elements.linkCount.textContent = blogData.blogLinks.length;
     
@@ -317,8 +330,9 @@
 
       // Set up expand button
       const expandButton = clone.querySelector('.expand-button');
-      if (link.isInternal) {
+      if (link.isInternal && currentDepth < 2) {
         expandButton.addEventListener('click', () => toggleNestedLinks(link.id, expandButton));
+        expandButton.title = `Explore links from "${link.title || link.text}"`;
       } else {
         expandButton.style.display = 'none';
       }
@@ -379,6 +393,14 @@
       const link = filteredLinks.find(l => l.id === linkId);
       if (!link) return;
 
+      // Check cache first
+      const cacheKey = `${link.href}_${currentDepth}`;
+      if (nestedLinkCache.has(cacheKey)) {
+        const cachedData = nestedLinkCache.get(cacheKey);
+        renderNestedLinks(cachedData.nestedLinks, container, link);
+        return;
+      }
+
       // Show loading
       container.innerHTML = '<div class="nested-loading">Loading nested links...</div>';
 
@@ -389,7 +411,17 @@
       });
 
       if (response.success && response.data && response.data.nestedLinks) {
-        renderNestedLinks(response.data.nestedLinks, container);
+        // Cache the results
+        nestedLinkCache.set(cacheKey, response.data);
+        
+        // Add depth information to nested links
+        const nestedLinksWithDepth = response.data.nestedLinks.map(nestedLink => ({
+          ...nestedLink,
+          depth: currentDepth + 1,
+          parentLink: link
+        }));
+        
+        renderNestedLinks(nestedLinksWithDepth, container, link);
       } else {
         container.innerHTML = '<div class="nested-loading">No nested links found.</div>';
       }
@@ -400,24 +432,87 @@
   }
 
   // Render nested links
-  function renderNestedLinks(nestedLinks, container) {
+  function renderNestedLinks(nestedLinks, container, parentLink = null) {
     if (nestedLinks.length === 0) {
       container.innerHTML = '<div class="nested-loading">No nested links found.</div>';
       return;
     }
 
     container.innerHTML = '';
-    nestedLinks.forEach(nestedLink => {
+    container.className = `nested-links level-${currentDepth + 1}`;
+    
+    nestedLinks.forEach((nestedLink, index) => {
       const item = document.createElement('div');
       item.className = 'nested-link-item';
       
+      // Main link
       const link = document.createElement('a');
       link.href = nestedLink.href;
       link.textContent = nestedLink.title || nestedLink.text || 'Unknown Title';
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       
+      // Actions container
+      const actions = document.createElement('div');
+      actions.className = 'nested-link-actions';
+      
+      // Add expand button for internal links at depth < 2
+      if (nestedLink.isInternal && currentDepth < 2) {
+        const expandButton = document.createElement('button');
+        expandButton.className = 'nested-expand-button';
+        expandButton.textContent = 'Explore';
+        expandButton.title = `Explore links from "${nestedLink.title || nestedLink.text}"`;
+        
+        expandButton.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Check if this nested link has its own nested links
+          const nestedCacheKey = `${nestedLink.href}_${currentDepth + 1}`;
+          let hasNestedLinks = false;
+          
+          if (nestedLinkCache.has(nestedCacheKey)) {
+            hasNestedLinks = nestedLinkCache.get(nestedCacheKey).nestedLinks.length > 0;
+          } else {
+            // Quick check if it might have nested links
+            try {
+              const response = await sendMessage({
+                type: 'FETCH_NESTED_LINKS',
+                url: nestedLink.href
+              });
+              hasNestedLinks = response.success && response.data && response.data.nestedLinks.length > 0;
+              
+              // Cache the result
+              if (response.success) {
+                nestedLinkCache.set(nestedCacheKey, response.data);
+              }
+            } catch (error) {
+              console.error('Blog Link Analyzer: Error checking nested links:', error);
+            }
+          }
+          
+          if (hasNestedLinks) {
+            // Navigate to this nested link's children
+            const nestedCacheKey = `${nestedLink.href}_${currentDepth + 1}`;
+            const cachedData = nestedLinkCache.get(nestedCacheKey);
+            
+            const nestedLinksWithDepth = cachedData.nestedLinks.map(deepNestedLink => ({
+              ...deepNestedLink,
+              depth: currentDepth + 2,
+              parentLink: nestedLink
+            }));
+            
+            navigateToNestedLinks(nestedLink, nestedLinksWithDepth);
+          } else {
+            showToast('No further nested links found 📭');
+          }
+        });
+        
+        actions.appendChild(expandButton);
+      }
+      
       item.appendChild(link);
+      item.appendChild(actions);
       container.appendChild(item);
     });
   }
@@ -540,6 +635,150 @@
     }, duration);
   }
 
+  // Navigation state management
+  function navigateToNestedLinks(parentLink, nestedLinks) {
+    // Add to navigation stack
+    navigationStack.push({
+      parentLink: currentParentLink,
+      depth: currentDepth,
+      filteredLinks: [...filteredLinks]
+    });
+    
+    currentParentLink = parentLink;
+    currentDepth = parentLink ? parentLink.depth + 1 : 0;
+    filteredLinks = nestedLinks;
+    
+    // Update UI
+    updateBreadcrumb();
+    updateLinksLabel();
+    renderBlogLinks();
+  }
+
+  function navigateBack() {
+    if (navigationStack.length === 0) return;
+    
+    const previousState = navigationStack.pop();
+    currentParentLink = previousState.parentLink;
+    currentDepth = previousState.depth;
+    filteredLinks = previousState.filteredLinks;
+    
+    // Update UI
+    updateBreadcrumb();
+    updateLinksLabel();
+    renderBlogLinks();
+  }
+
+  function navigateToRoot() {
+    navigationStack = [];
+    currentParentLink = null;
+    currentDepth = 0;
+    filteredLinks = blogData ? blogData.blogLinks || [] : [];
+    
+    // Update UI
+    updateBreadcrumb();
+    updateLinksLabel();
+    renderBlogLinks();
+  }
+
+  // Update breadcrumb display
+  function updateBreadcrumb() {
+    if (currentDepth === 0) {
+      elements.breadcrumbSection.style.display = 'none';
+      return;
+    }
+    
+    elements.breadcrumbSection.style.display = 'block';
+    
+    // Build breadcrumb path
+    const pathItems = [];
+    
+    // Add parent links from navigation stack
+    navigationStack.forEach((state, index) => {
+      if (state.parentLink) {
+        pathItems.push({
+          title: state.parentLink.title || state.parentLink.text,
+          depth: state.depth,
+          isCurrent: false
+        });
+      }
+    });
+    
+    // Add current parent
+    if (currentParentLink) {
+      pathItems.push({
+        title: currentParentLink.title || currentParentLink.text,
+        depth: currentDepth,
+        isCurrent: true
+      });
+    }
+    
+    // Render breadcrumb
+    elements.breadcrumbPath.innerHTML = '';
+    
+    pathItems.forEach((item, index) => {
+      const itemElement = document.createElement('div');
+      itemElement.className = `breadcrumb-item ${item.isCurrent ? 'breadcrumb-current' : ''}`;
+      
+      if (item.isCurrent) {
+        itemElement.textContent = item.title;
+      } else {
+        // Make clickable for navigation
+        const link = document.createElement('button');
+        link.className = 'breadcrumb-link';
+        link.textContent = item.title;
+        link.style.background = 'none';
+        link.style.border = 'none';
+        link.style.color = '#667eea';
+        link.style.cursor = 'pointer';
+        link.style.fontSize = '12px';
+        link.onclick = () => navigateToDepth(item.depth);
+        itemElement.appendChild(link);
+      }
+      
+      elements.breadcrumbPath.appendChild(itemElement);
+      
+      // Add separator except for last item
+      if (index < pathItems.length - 1) {
+        const separator = document.createElement('span');
+        separator.className = 'breadcrumb-separator';
+        separator.textContent = '›';
+        elements.breadcrumbPath.appendChild(separator);
+      }
+    });
+  }
+
+  // Navigate to specific depth
+  function navigateToDepth(targetDepth) {
+    while (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].depth > targetDepth) {
+      navigationStack.pop();
+    }
+    
+    if (navigationStack.length > 0) {
+      const targetState = navigationStack[navigationStack.length - 1];
+      currentParentLink = targetState.parentLink;
+      currentDepth = targetState.depth;
+      filteredLinks = targetState.filteredLinks;
+    } else {
+      navigateToRoot();
+      return;
+    }
+    
+    updateBreadcrumb();
+    updateLinksLabel();
+    renderBlogLinks();
+  }
+
+  // Update links label based on current depth
+  function updateLinksLabel() {
+    if (currentDepth === 0) {
+      elements.linksLabel.textContent = 'filtered posts';
+    } else if (currentDepth === 1) {
+      elements.linksLabel.textContent = 'nested posts';
+    } else {
+      elements.linksLabel.textContent = `level ${currentDepth} posts`;
+    }
+  }
+
   // Send message to background script with enhanced error handling
   function sendMessage(message) {
     return new Promise((resolve, reject) => {
@@ -603,6 +842,9 @@
     elements.settingsButton.addEventListener('click', () => {
       showToast('Settings coming soon! 🚧');
     });
+
+    // Breadcrumb navigation
+    elements.breadcrumbHome.addEventListener('click', navigateToRoot);
 
     // Keyboard shortcuts
     const keyHandler = (e) => {
