@@ -38,9 +38,16 @@
   // Store blog data for a tab
   async function storeBlogData(tabId, data) {
     try {
+      // Handle null/undefined data
+      if (!data) {
+        console.log(`Blog Link Analyzer: No data to store for tab ${tabId}`);
+        return;
+      }
+
       console.log(`Blog Link Analyzer: Storing data for tab ${tabId}:`, {
         isBlog: data.isBlog,
-        linkCount: data.blogLinks ? data.blogLinks.length : 0
+        linkCount: data.blogLinks ? data.blogLinks.length : 0,
+        dataType: typeof data
       });
       
       const api = getChromeAPI();
@@ -61,7 +68,8 @@
       console.error('Blog Link Analyzer: Error storing blog data:', {
         error: error.message,
         tabId: tabId,
-        stack: error.stack
+        stack: error.stack,
+        data: data ? 'present' : 'null/undefined'
       });
     }
   }
@@ -126,70 +134,147 @@
     }
   }
 
-  // Handle messages from content scripts and popup
+  // Enhanced message handling with better logging and error recovery
   function setupMessageListener() {
     getChromeAPI().runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Blog Link Analyzer: Received message:', message.type, 'from tab:', sender.tab?.id);
+      // Update activity to keep service worker alive
+      updateActivity();
+      
+      const messageId = `${message.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log(`Blog Link Analyzer: [${messageId}] Received message:`, {
+        type: message.type,
+        fromTab: sender.tab?.id,
+        url: sender.tab?.url,
+        timestamp: Date.now(),
+        serviceWorkerActive: true
+      });
     
     (async () => {
       try {
         switch (message.type) {
           case 'BLOG_DETECTED':
-            console.log('Blog Link Analyzer: Blog detected', message.payload);
+            console.log(`Blog Link Analyzer: [${messageId}] Processing blog detected:`, {
+              tabId: sender.tab?.id,
+              isBlog: message.payload?.isBlog,
+              confidence: message.payload?.confidence,
+              platform: message.payload?.platform
+            });
+            
             await storeBlogData(sender.tab.id, {
               isBlog: true,
               blogInfo: message.payload,
-              blogLinks: []
+              blogLinks: [],
+              detectionTimestamp: message.timestamp || Date.now()
             });
-            sendResponse({ success: true });
+            
+            console.log(`Blog Link Analyzer: [${messageId}] Blog detection data stored successfully`);
+            sendResponse({ success: true, messageId });
             break;
 
           case 'BLOG_LINKS_EXTRACTED':
-            console.log('Blog Link Analyzer: Links extracted', {
-              linkCount: message.payload.blogLinks ? message.payload.blogLinks.length : 0,
-              url: message.payload.url
+            const linkCount = message.payload?.blogLinks ? message.payload.blogLinks.length : 0;
+            console.log(`Blog Link Analyzer: [${messageId}] Processing links extracted:`, {
+              tabId: sender.tab?.id,
+              linkCount: linkCount,
+              url: message.payload?.url,
+              timestamp: message.payload?.timestamp
             });
             
             const existingData = await getBlogData(sender.tab.id);
-            await storeBlogData(sender.tab.id, {
+            const newData = {
               ...existingData,
-              blogLinks: message.payload.blogLinks,
-              lastExtraction: message.payload.timestamp
-            });
-            sendResponse({ success: true });
+              // Don't override isBlog if it already exists in existingData
+              isBlog: existingData.isBlog !== undefined ? existingData.isBlog : (message.payload?.isBlog || false),
+              confidence: message.payload?.confidence || existingData.confidence || 0,
+              platform: message.payload?.platform || existingData.platform || 'unknown',
+              url: message.payload?.url || sender.tab?.url,
+              title: message.payload?.title || sender.tab?.title,
+              blogLinks: message.payload.blogLinks || existingData.blogLinks || [],
+              extractionComplete: true,
+              extractionTimestamp: message.payload?.timestamp || Date.now()
+            };
+            
+            // Only preserve detectionComplete if it actually exists in existingData
+            if (existingData.detectionComplete !== undefined) {
+              newData.detectionComplete = existingData.detectionComplete;
+            }
+            
+            await storeBlogData(sender.tab.id, newData);
+            
+            console.log(`Blog Link Analyzer: [${messageId}] Links data stored successfully`);
+            sendResponse({ success: true, messageId, linkCount });
             break;
 
           case 'GET_BLOG_DATA':
-            console.log('Blog Link Analyzer: Requesting blog data for tab:', message.tabId, 'from sender tab:', sender.tab?.id);
+            console.log(`Blog Link Analyzer: [${messageId}] Processing blog data request:`, {
+              requestedTabId: message.tabId,
+              senderTabId: sender.tab?.id,
+              timestamp: Date.now()
+            });
+            
             const data = await getBlogData(message.tabId);
-            console.log('Blog Link Analyzer: Retrieved blog data:', {
+            
+            console.log(`Blog Link Analyzer: [${messageId}] Blog data retrieved:`, {
               hasData: !!data,
               isBlog: data?.isBlog,
               linkCount: data?.blogLinks ? data.blogLinks.length : 0,
-              lastUpdated: data?.lastUpdated
+              lastUpdated: data?.lastUpdated,
+              extractionComplete: data?.extractionComplete,
+              detectionComplete: data?.detectionComplete,
+              allKeys: Object.keys(data || {}),
+              detectionCompleteValue: data?.detectionComplete,
+              detectionCompleteType: typeof data?.detectionComplete
             });
-            sendResponse({ success: true, data: data });
+            
+            // Add fallback data if nothing exists yet
+            const responseData = data || {
+              isBlog: false,
+              blogLinks: [],
+              extractionComplete: false,
+              detectionComplete: false,
+              fallbackData: true,
+              message: 'No data available yet - content scripts may still be loading'
+            };
+            
+            sendResponse({ success: true, data: responseData, messageId });
             break;
 
           case 'FETCH_NESTED_LINKS':
-            // This would be implemented for nested link expansion
-            console.log('Blog Link Analyzer: Fetching nested links for:', message.url);
+            console.log(`Blog Link Analyzer: [${messageId}] Processing nested links request:`, {
+              url: message.url,
+              timestamp: Date.now()
+            });
+            
             const nestedData = await fetchNestedLinksForUrl(message.url);
-            sendResponse({ success: true, data: nestedData });
+            
+            console.log(`Blog Link Analyzer: [${messageId}] Nested links retrieved:`, {
+              url: message.url,
+              nestedLinkCount: nestedData?.nestedLinks ? nestedData.nestedLinks.length : 0,
+              hasError: !!nestedData?.error
+            });
+            
+            sendResponse({ success: true, data: nestedData, messageId });
+            break;
+
+          case 'KEEP_ALIVE':
+            // Simple keep-alive message
+            console.log(`Blog Link Analyzer: [${messageId}] Keep-alive received`);
+            sendResponse({ success: true, messageId, timestamp: Date.now() });
             break;
 
           default:
-            console.warn('Blog Link Analyzer: Unknown message type:', message.type);
-            sendResponse({ success: false, error: 'Unknown message type' });
+            console.warn(`Blog Link Analyzer: [${messageId}] Unknown message type:`, message.type);
+            sendResponse({ success: false, error: 'Unknown message type', messageId });
         }
       } catch (error) {
-        console.error('Blog Link Analyzer: Message handling error:', {
+        console.error(`Blog Link Analyzer: [${messageId}] Message handling error:`, {
           error: error.message,
           messageType: message.type,
           tabId: sender.tab?.id,
-          stack: error.stack
+          stack: error.stack,
+          timestamp: Date.now()
         });
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: error.message, messageId });
       }
     })();
 
@@ -225,9 +310,11 @@
         await api.tabs.remove(tab.id);
 
         if (result && result.success && result.data && result.data.blogLinks) {
+          const nestedLinks = result.data.blogLinks.slice(0, 50); // Increased limit for better exploration
+          console.log(`Blog Link Analyzer: Found ${nestedLinks.length} nested links for ${url}`);
           return {
             url: url,
-            nestedLinks: result.data.blogLinks.slice(0, 10), // Limit nested results
+            nestedLinks: nestedLinks,
             timestamp: Date.now()
           };
         } else {
@@ -292,12 +379,22 @@
 
   // Clean up old data periodically
   function setupAlarms() {
-    getChromeAPI().alarms.create('cleanup', { periodInMinutes: 30 });
-    getChromeAPI().alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === 'cleanup') {
-        cleanupOldData();
+    try {
+      const api = getChromeAPI();
+      if (api.alarms) {
+        api.alarms.create('cleanup', { periodInMinutes: 30 });
+        api.alarms.onAlarm.addListener((alarm) => {
+          if (alarm.name === 'cleanup') {
+            cleanupOldData();
+          }
+        });
+        console.log('Blog Link Analyzer: Alarms setup successful');
+      } else {
+        console.log('Blog Link Analyzer: Alarms API not available, skipping alarm setup');
       }
-    });
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to setup alarms:', error);
+    }
   }
 
   // Initialize on startup
@@ -327,6 +424,48 @@
         });
       }
     });
+  }
+
+  // Keep-alive mechanism to prevent service worker inactivity
+  let keepAliveInterval;
+  let lastActivityTime = Date.now();
+
+  function startKeepAlive() {
+    console.log('Blog Link Analyzer: Starting keep-alive mechanism');
+    
+    // Clear any existing interval
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+    }
+    
+    // Set up keep-alive interval
+    keepAliveInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - lastActivityTime;
+      
+      console.log('Blog Link Analyzer: Keep-alive check:', {
+        timeSinceLastActivity: timeSinceLastActivity + 'ms',
+        lastActivity: new Date(lastActivityTime).toISOString()
+      });
+      
+      // Update last activity time to keep service worker alive
+      lastActivityTime = now;
+      
+      // Optionally perform a lightweight storage operation to maintain activity
+      try {
+        const api = getChromeAPI();
+        api.storage.local.get(['keepAlive']).catch(() => {
+          // Ignore errors, this is just to maintain activity
+        });
+      } catch (error) {
+        // Ignore errors
+      }
+    }, 20000); // Every 20 seconds
+  }
+
+  function updateActivity() {
+    lastActivityTime = Date.now();
+    console.log('Blog Link Analyzer: Activity updated:', new Date(lastActivityTime).toISOString());
   }
 
   // Main initialization function
@@ -375,6 +514,9 @@
       } catch (error) {
         console.error('Blog Link Analyzer: Failed to setup install listener:', error);
       }
+      
+      // Start keep-alive mechanism
+      startKeepAlive();
       
       console.log('Blog Link Analyzer: Service worker initialized successfully');
     } catch (error) {

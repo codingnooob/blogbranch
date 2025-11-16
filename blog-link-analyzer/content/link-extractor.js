@@ -266,60 +266,155 @@
     }
   }
 
-  // Initialize link extraction
-  async function initializeLinkExtraction() {
-    try {
-      console.log('Blog Link Analyzer: Starting link extraction initialization...');
+  // Enhanced message sending with retry
+  function sendMessageWithRetry(message, maxRetries = 3, delay = 500) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
       
-      // Wait a bit for the blog detector to finish
-      setTimeout(async () => {
+      function attemptSend() {
+        attempts++;
+        console.log(`Blog Link Analyzer: Link extractor - Sending message attempt ${attempts}/${maxRetries}:`, message.type);
+        
         try {
-          if (window.blogLinkAnalyzerData && window.blogLinkAnalyzerData.isBlog) {
-            console.log('Blog Link Analyzer: Extracting blog links...');
-            
-            const blogLinks = await extractAllBlogLinkMetadata();
-            
-            console.log(`Blog Link Analyzer: Found ${blogLinks.length} blog links`);
-
-            // Store results for popup
-            window.blogLinkAnalyzerData.blogLinks = blogLinks;
-
-            // Send message to background script with enhanced error handling
-            try {
-              if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-                const message = {
-                  type: 'BLOG_LINKS_EXTRACTED',
-                  payload: {
-                    url: window.location.href,
-                    blogLinks: blogLinks,
-                    timestamp: Date.now()
-                  }
-                };
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage(message, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(`Blog Link Analyzer: Link extractor - Message attempt ${attempts} failed:`, chrome.runtime.lastError);
                 
-                console.log('Blog Link Analyzer: Sending message to background:', message);
-                
-                chrome.runtime.sendMessage(message, (response) => {
-                  if (chrome.runtime.lastError) {
-                    console.error('Blog Link Analyzer: Error sending blog links message:', chrome.runtime.lastError);
-                  } else {
-                    console.log('Blog Link Analyzer: Blog links message sent successfully');
-                  }
-                });
+                if (attempts < maxRetries) {
+                  setTimeout(attemptSend, delay * attempts);
+                } else {
+                  reject(new Error(`Failed after ${maxRetries} attempts: ${chrome.runtime.lastError.message}`));
+                }
               } else {
-                console.warn('Blog Link Analyzer: Chrome runtime not available for messaging');
+                console.log(`Blog Link Analyzer: Link extractor - Message sent successfully on attempt ${attempts}:`, response);
+                resolve(response);
               }
-            } catch (messageError) {
-              console.error('Blog Link Analyzer: Failed to send blog links message:', messageError);
-            }
+            });
           } else {
-            console.log('Blog Link Analyzer: Not a blog post, skipping link extraction');
+            reject(new Error('Chrome runtime not available'));
           }
         } catch (error) {
-          console.error('Blog Link Analyzer: Error in link extraction initialization:', error);
+          console.error(`Blog Link Analyzer: Link extractor - Message attempt ${attempts} threw error:`, error);
+          
+          if (attempts < maxRetries) {
+            setTimeout(attemptSend, delay * attempts);
+          } else {
+            reject(error);
+          }
         }
-      }, 1000);
+      }
+      
+      attemptSend();
+    });
+  }
+
+  // Wait for blog detection to complete
+  function waitForBlogDetection(timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      
+      function checkDetection() {
+        if (window.blogLinkAnalyzerData && window.blogLinkAnalyzerData.detectionComplete) {
+          console.log('Blog Link Analyzer: Blog detection completed, proceeding with link extraction');
+          resolve(window.blogLinkAnalyzerData);
+        } else if (Date.now() - startTime > timeout) {
+          console.warn('Blog Link Analyzer: Blog detection timeout, proceeding anyway');
+          resolve(window.blogLinkAnalyzerData || { isBlog: false, detectionComplete: false });
+        } else {
+          setTimeout(checkDetection, 100);
+        }
+      }
+      
+      checkDetection();
+    });
+  }
+
+  // Initialize link extraction with better timing coordination
+  async function initializeLinkExtraction() {
+    try {
+      console.log('Blog Link Analyzer: Starting link extraction initialization...', {
+        readyState: document.readyState,
+        url: window.location.href,
+        timestamp: Date.now()
+      });
+      
+      // Wait for blog detection to complete
+      const blogData = await waitForBlogDetection();
+      
+      if (blogData && blogData.isBlog) {
+        console.log('Blog Link Analyzer: Extracting blog links...');
+        
+        try {
+          const blogLinks = await extractAllBlogLinkMetadata();
+          
+          console.log(`Blog Link Analyzer: Found ${blogLinks.length} blog links`);
+
+          // Update stored data with links
+          window.blogLinkAnalyzerData = {
+            ...window.blogLinkAnalyzerData,
+            blogLinks: blogLinks,
+            extractionComplete: true,
+            extractionTimestamp: Date.now()
+          };
+
+          // Send message to background script with retry mechanism
+          const message = {
+            type: 'BLOG_LINKS_EXTRACTED',
+            payload: {
+              url: window.location.href,
+              blogLinks: blogLinks,
+              timestamp: Date.now()
+            }
+          };
+          
+          console.log('Blog Link Analyzer: Sending links message to background:', {
+            type: message.type,
+            linkCount: blogLinks.length,
+            url: message.payload.url
+          });
+          
+          sendMessageWithRetry(message).then((response) => {
+            console.log('Blog Link Analyzer: Blog links message confirmed by background');
+          }).catch((error) => {
+            console.error('Blog Link Analyzer: Failed to send blog links message after retries:', error);
+          });
+          
+        } catch (extractionError) {
+          console.error('Blog Link Analyzer: Error during link extraction:', extractionError);
+          
+          // Store error state to prevent hanging
+          window.blogLinkAnalyzerData = {
+            ...window.blogLinkAnalyzerData,
+            blogLinks: [],
+            extractionComplete: true,
+            extractionError: extractionError.message,
+            extractionTimestamp: Date.now()
+          };
+        }
+      } else {
+        console.log('Blog Link Analyzer: Not a blog post, skipping link extraction');
+        
+        // Ensure extraction is marked as complete even for non-blogs
+        window.blogLinkAnalyzerData = {
+          ...window.blogLinkAnalyzerData,
+          blogLinks: [],
+          extractionComplete: true,
+          extractionTimestamp: Date.now()
+        };
+      }
     } catch (error) {
       console.error('Blog Link Analyzer: Critical error in link extraction:', error);
+      
+      // Store error state to prevent hanging
+      window.blogLinkAnalyzerData = {
+        isBlog: false,
+        blogLinks: [],
+        extractionComplete: true,
+        criticalError: true,
+        error: error.message,
+        extractionTimestamp: Date.now()
+      };
     }
   }
 

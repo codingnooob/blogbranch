@@ -192,6 +192,53 @@ body {
 .loading-text {
   color: #666;
   font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.loading-progress {
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto 16px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  width: 0%;
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.progress-text {
+  color: #666;
+  font-size: 12px;
+  text-align: center;
+  margin: 0;
+}
+
+.loading-cancel-button {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.loading-cancel-button:hover {
+  background: #d32f2f;
 }
 
 /* No Results State */
@@ -513,6 +560,7 @@ body {
   color: #666;
   flex: 1;
   overflow: hidden;
+  min-width: 0; /* Important for text truncation */
 }
 
 .breadcrumb-item {
@@ -520,6 +568,20 @@ body {
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+  min-width: 0; /* Important for text truncation */
+  flex-shrink: 1;
+}
+
+.breadcrumb-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px; /* Truncate long breadcrumb items */
+}
+
+.breadcrumb-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px; /* Slightly wider for current item */
 }
 
 .breadcrumb-separator {
@@ -548,6 +610,46 @@ body {
 .nested-links.level-3 {
   background: #f0f0f0;
   border-left: 3px solid #764ba2;
+}
+
+.nested-links.level-4 {
+  background: #ebebeb;
+  border-left: 3px solid #9f7aea;
+}
+
+.nested-links.level-5 {
+  background: #e6e6e6;
+  border-left: 3px solid #ed8936;
+}
+
+.nested-links.level-6 {
+  background: #e1e1e1;
+  border-left: 3px solid #38b2ac;
+}
+
+.nested-links.level-7 {
+  background: #dcdcdc;
+  border-left: 3px solid #f56565;
+}
+
+.nested-links.level-8 {
+  background: #d7d7d7;
+  border-left: 3px solid #4299e1;
+}
+
+.nested-links.level-9 {
+  background: #d2d2d2;
+  border-left: 3px solid #48bb78;
+}
+
+.nested-links.level-10 {
+  background: #cdcdcd;
+  border-left: 3px solid #ed64a6;
+}
+
+.nested-links.level-max {
+  background: #c8c8c8;
+  border-left: 3px solid #718096;
 }
 
 .nested-loading {

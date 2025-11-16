@@ -7,7 +7,18 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="popup-container">
+  <!-- TEST: Simple loading indicator -->
+  <div id="test-loading" style="padding: 20px; text-align: center; font-size: 16px; color: #1976d2;">
+    📝 Loading Blog Link Analyzer...
+  </div>
+
+  <!-- DEBUG: Show received data -->
+  <div id="debug-data" style="padding: 10px; background: #f0f0f0; border: 1px solid #ccc; font-size: 12px; display: none;">
+    <strong>DEBUG: Received Data</strong>
+    <pre id="debug-content" style="margin: 5px 0; white-space: pre-wrap;"></pre>
+  </div>
+
+  <div class="popup-container" style="display: none;">
     <header class="popup-header">
       <div class="header-content">
         <h2 class="extension-title">
@@ -52,7 +63,14 @@
       <!-- Loading State -->
       <section class="loading-section" id="loading-section">
         <div class="loading-spinner"></div>
-        <p class="loading-text">Analyzing page for blog posts...</p>
+        <p class="loading-text" id="loading-text">Analyzing page for blog posts...</p>
+        <div class="loading-progress" id="loading-progress" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="progress-text" id="progress-text">Initializing...</p>
+        </div>
+        <button class="loading-cancel-button" id="loading-cancel-button" style="display: none;">Cancel</button>
       </section>
 
       <!-- No Results State -->

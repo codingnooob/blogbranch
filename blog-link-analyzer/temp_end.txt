@@ -1,33 +1,10 @@
-// Blog Link Analyzer Popup Script - Fixed Version
+// Blog Link Analyzer Popup Script
 (function() {
   'use strict';
   
-  // IMMEDIATE DEBUGGING - This should appear immediately when popup opens
-  console.log('=== BLOG LINK ANALYZER POPUP START ===');
   console.log('Blog Link Analyzer: Popup script loaded - START');
   console.log('Blog Link Analyzer: Document ready state:', document.readyState);
   console.log('Blog Link Analyzer: Has body:', !!document.body);
-  console.log('Blog Link Analyzer: Document URL:', window.location.href);
-  
-  // IMMEDIATE VISUAL TEST - Hide test loading and show real popup
-  try {
-    const testLoading = document.getElementById('test-loading');
-    const popupContainer = document.querySelector('.popup-container');
-    if (testLoading) testLoading.style.display = 'none';
-    if (popupContainer) popupContainer.style.display = 'block';
-    console.log('Blog Link Analyzer: Visual test passed - showing real popup');
-  } catch (e) {
-    console.error('Blog Link Analyzer: Visual test failed:', e);
-  }
-  
-  // Try to log some basic DOM elements
-  try {
-    console.log('Blog Link Analyzer: Document elements count:', document.querySelectorAll('*').length);
-    console.log('Blog Link Analyzer: Has settings-button:', !!document.getElementById('settings-button'));
-    console.log('Blog Link Analyzer: Has loading-section:', !!document.getElementById('loading-section'));
-  } catch (e) {
-    console.error('Blog Link Analyzer: Error checking DOM:', e);
-  }
 
   // State management
   let currentTabId = null;
@@ -66,6 +43,30 @@
     console.log(`Blog Link Analyzer: Element ${id}:`, element ? 'found' : 'NOT FOUND');
     return element;
   }
+  
+  // Initialize all elements with diagnostics
+  const elementIds = [
+    'link-count', 'filtered-count', 'current-page', 'search-input', 'search-clear',
+    'show-internal-only', 'show-extracted-only', 'loading-section', 'loading-text',
+    'loading-progress', 'progress-fill', 'progress-text', 'loading-cancel-button',
+    'no-results-section', 'error-section', 'links-section', 'blog-links',
+    'retry-button', 'error-retry-button', 'refresh-button', 'settings-button',
+    'toast', 'toast-message', 'breadcrumb-section', 'breadcrumb-home',
+    'breadcrumb-path', 'links-label'
+  ];
+  
+  elementIds.forEach(id => {
+    elements[id.replace(/-/g, '')] = getElementWithLog(id);
+  });
+  
+  // Log overall DOM state
+  console.log('Blog Link Analyzer: DOM Elements Summary:', {
+    totalElements: elementIds.length,
+    foundElements: Object.values(elements).filter(el => !!el).length,
+    missingElements: Object.entries(elements).filter(([id, el]) => !el).map(([id]) => id),
+    domReady: document.readyState,
+    bodyExists: !!document.body
+  });
 
   // Check if Chrome APIs are available
   function isChromeAPIAvailable() {
@@ -125,369 +126,6 @@
     }
   }
 
-  // Enhanced message sending with queuing and deduplication
-  function sendMessage(message) {
-    return new Promise((resolve, reject) => {
-      try {
-        const chromeAPI = getChromeAPI();
-        const requestId = `${message.type}_${Date.now()}_${Math.random()}`;
-        
-        // Add to active requests
-        activeRequests.add(requestId);
-        
-        console.log(`Blog Link Analyzer: [POPUP] Sending message ${requestId}:`, {
-          type: message.type,
-          tabId: message.tabId,
-          url: message.url,
-          timestamp: Date.now(),
-          chromeAPIAvailable: !!chromeAPI,
-          runtimeAvailable: !!(chromeAPI && chromeAPI.runtime),
-          runtimeId: chromeAPI?.runtime?.id
-        });
-        
-        // Check if runtime is available before sending
-        if (!chromeAPI || !chromeAPI.runtime) {
-          const error = new Error('Chrome runtime not available');
-          console.error(`Blog Link Analyzer: [POPUP] Chrome runtime check failed:`, {
-            chromeAPI: !!chromeAPI,
-            runtime: !!(chromeAPI && chromeAPI.runtime),
-            id: chromeAPI?.runtime?.id
-          });
-          activeRequests.delete(requestId);
-          reject(error);
-          return;
-        }
-        
-        chromeAPI.runtime.sendMessage(message, (response) => {
-          activeRequests.delete(requestId);
-          
-          if (chromeAPI.runtime.lastError) {
-            const error = new Error(chromeAPI.runtime.lastError.message);
-            error.code = chromeAPI.runtime.lastError.code;
-            console.error(`Blog Link Analyzer: [POPUP] Message ${requestId} failed:`, {
-              error: chromeAPI.runtime.lastError,
-              messageType: message.type,
-              tabId: message.tabId,
-              requestId: requestId
-            });
-            reject(error);
-          } else {
-            console.log(`Blog Link Analyzer: [POPUP] Message ${requestId} completed:`, {
-              response: response,
-              messageType: message.type,
-              tabId: message.tabId,
-              requestId: requestId
-            });
-            resolve(response);
-          }
-        });
-      } catch (error) {
-        console.error(`Blog Link Analyzer: [POPUP] Failed to send message:`, {
-          error: error.message,
-          stack: error.stack,
-          messageType: message.type,
-          tabId: message.tabId
-        });
-        reject(new Error(`Failed to send message: ${error.message}`));
-      }
-    });
-  }
-
-  // Fallback: Direct storage access when background communication fails
-  async function getBlogDataFromStorage(tabId) {
-    try {
-      console.log('Blog Link Analyzer: [FALLBACK] Attempting direct storage access...');
-      
-      const chromeAPI = getChromeAPI();
-      const result = await chromeAPI.storage.local.get(['blogLinkAnalyzer_data']);
-      const blogData = result.blogLinkAnalyzer_data || {};
-      
-      console.log('Blog Link Analyzer: [FALLBACK] Storage data retrieved:', {
-        hasData: !!blogData,
-        tabIds: Object.keys(blogData),
-        requestedTabId: tabId,
-        requestedTabIdType: typeof tabId,
-        foundTabData: !!blogData[tabId],
-        availableData: Object.keys(blogData).map(id => ({
-          tabId: id,
-          tabIdType: typeof id,
-          hasData: !!blogData[id],
-          linkCount: blogData[id]?.blogLinks?.length || 0,
-          isBlog: blogData[id]?.isBlog
-        }))
-      });
-      
-      const data = blogData[tabId] || null;
-      
-      if (data) {
-        console.log('Blog Link Analyzer: [FALLBACK] Found data for tab:', {
-          isBlog: data.isBlog,
-          linkCount: data.blogLinks ? data.blogLinks.length : 0,
-          lastUpdated: data.lastUpdated,
-          extractionComplete: data.extractionComplete,
-          detectionComplete: data.detectionComplete
-        });
-      } else {
-        console.log('Blog Link Analyzer: [FALLBACK] No data found for tab, checking for similar IDs...');
-        
-        // Try to find data with similar tab ID (in case of type mismatch)
-        const numericTabId = parseInt(tabId);
-        const stringTabId = tabId.toString();
-        
-        if (blogData[numericTabId]) {
-          console.log('Blog Link Analyzer: [FALLBACK] Found data with numeric tab ID:', numericTabId);
-          return blogData[numericTabId];
-        } else if (blogData[stringTabId]) {
-          console.log('Blog Link Analyzer: [FALLBACK] Found data with string tab ID:', stringTabId);
-          return blogData[stringTabId];
-        } else {
-          // Try to find the most recent tab data as last resort
-          const tabIds = Object.keys(blogData).map(id => parseInt(id));
-          const recentTabIds = tabIds.sort((a, b) => {
-            const dataA = blogData[a];
-            const dataB = blogData[b];
-            return (dataB?.lastUpdated || 0) - (dataA?.lastUpdated || 0);
-          });
-          
-          console.log('Blog Link Analyzer: [FALLBACK] Trying most recent tab data:', {
-            availableTabIds: tabIds,
-            recentTabIds: recentTabIds.slice(-3), // Last 3 tabs
-            requestedTabId: tabId
-          });
-          
-          // Try to most recent tabs
-          for (const recentTabId of recentTabIds.slice(-3).reverse()) {
-            const recentData = blogData[recentTabId];
-            if (recentData && recentData.blogLinks && recentData.blogLinks.length > 0) {
-              console.log('Blog Link Analyzer: [FALLBACK] Using recent tab data:', recentTabId);
-              return recentData;
-            }
-          }
-        }
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Blog Link Analyzer: [FALLBACK] Storage access failed:', error);
-      return null;
-    }
-  }
-
-  // Enhanced blog data loading with multiple retries and fallback storage access
-  async function loadBlogData() {
-    console.log('Blog Link Analyzer: Starting to load blog data...', {
-      tabId: currentTabId,
-      timestamp: Date.now()
-    });
-    showLoading('Analyzing page for blog posts...', true);
-
-    const maxRetries = 3;
-    const retryDelays = [1000, 2000, 3000]; // Progressive delays
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      let loadingTimeout;
-      
-      try {
-        console.log(`Blog Link Analyzer: Data loading attempt ${attempt}/${maxRetries}`);
-        
-        // Update progress
-        updateProgress((attempt - 1) * 25, `Attempt ${attempt} of ${maxRetries}...`);
-        
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => {
-          loadingTimeout = setTimeout(() => {
-            reject(new Error(`Data loading timeout after ${CONFIG.REQUEST_TIMEOUT/1000} seconds (attempt ${attempt})`));
-          }, CONFIG.REQUEST_TIMEOUT);
-        });
-
-        console.log(`Blog Link Analyzer: [POPUP] Requesting blog data for tab ID: ${currentTabId} (attempt ${attempt})`);
-        console.log(`Blog Link Analyzer: [POPUP] Tab details:`, {
-          requestedTabId: currentTabId,
-          tabIdType: typeof currentTabId,
-          timestamp: Date.now()
-        });
-        updateProgress((attempt - 1) * 25 + 10, 'Requesting data from background...');
-        
-        const dataPromise = sendMessage({
-          type: 'GET_BLOG_DATA',
-          tabId: currentTabId,
-          timestamp: Date.now(), // Cache-busting
-          forceRefresh: true // Signal to get fresh data
-        });
-
-        const response = await Promise.race([dataPromise, timeoutPromise]);
-        clearTimeout(loadingTimeout);
-
-        console.log(`Blog Link Analyzer: [POPUP] Received response on attempt ${attempt}:`, {
-          success: response?.success,
-          hasData: !!response?.data,
-          isBlog: response?.data?.isBlog,
-          linkCount: response?.data?.blogLinks?.length || 0,
-          isFallback: response?.data?.fallbackData,
-          extractionComplete: response?.data?.extractionComplete,
-          detectionComplete: response?.data?.detectionComplete,
-          fullResponse: response
-        });
-
-        updateProgress((attempt - 1) * 25 + 20, 'Processing response...');
-
-        if (response && response.success && response.data) {
-          blogData = response.data;
-          
-          // DEBUG: Show received data
-          const debugDiv = document.getElementById('debug-data');
-          const debugContent = document.getElementById('debug-content');
-          if (debugDiv && debugContent) {
-            debugDiv.style.display = 'block';
-            debugContent.textContent = JSON.stringify(response.data, null, 2);
-          }
-          
-          // Force fresh data on first successful response
-          if (response.data.blogLinks && response.data.blogLinks.length > 0) {
-            console.log('Blog Link Analyzer: [POPUP] Got fresh data with links, stopping retries');
-            // Don't retry anymore - we have good data
-            maxRetries = 1; // This will exit the retry loop
-          }
-          
-          // Check if we should wait for content scripts to finish
-          if (!blogData.extractionComplete || !blogData.detectionComplete) {
-            console.log(`Blog Link Analyzer: Content scripts not finished on attempt ${attempt}, checking if we should retry...`);
-            updateProgress((attempt - 1) * 25 + 25, 'Waiting for content scripts to finish...');
-            
-            if (attempt < maxRetries) {
-              console.log(`Blog Link Analyzer: Will retry after ${retryDelays[attempt - 1]}ms`);
-              updateProgress((attempt - 1) * 25 + 30, `Retrying in ${retryDelays[attempt - 1] / 1000} seconds...`);
-              await new Promise(resolve => setTimeout(resolve, retryDelays[attempt - 1]));
-              continue;
-            } else {
-              console.log('Blog Link Analyzer: Max retries reached, proceeding with available data');
-              updateProgress(90, 'Proceeding with available data...');
-            }
-          }
-          
-          updateProgress(100, 'Loading complete!');
-          
-          console.log('Blog Link Analyzer: Blog data loaded successfully:', {
-            isBlog: blogData.isBlog,
-            linkCount: blogData.blogLinks ? blogData.blogLinks.length : 0,
-            extractionComplete: blogData.extractionComplete,
-            detectionComplete: blogData.detectionComplete
-          });
-          
-          // Small delay to show completion
-          await new Promise(resolve => setTimeout(resolve, 500));
-          displayResults();
-          return; // Success, exit the retry loop
-        } else {
-          console.log(`Blog Link Analyzer: No blog data found on attempt ${attempt}`);
-          
-          if (attempt === maxRetries) {
-            showNoResults('No blog data found for this page after multiple attempts.');
-            return;
-          }
-        }
-      } catch (error) {
-        clearTimeout(loadingTimeout);
-        console.error(`Blog Link Analyzer: Error loading blog data on attempt ${attempt}:`, error);
-        
-        // Try fallback storage access on final attempt or for specific errors
-        if (attempt === maxRetries || 
-            error.message.includes('message channel') || 
-            error.message.includes('Could not establish connection') ||
-            error.message.includes('Chrome runtime not available')) {
-          
-          console.log('Blog Link Analyzer: Trying fallback storage access...');
-          updateProgress((attempt - 1) * 25 + 15, 'Trying fallback storage access...');
-          
-          const fallbackData = await getBlogDataFromStorage(currentTabId);
-          
-          if (fallbackData) {
-            console.log('Blog Link Analyzer: Fallback data found, using it');
-            updateProgress(100, 'Loading complete from fallback!');
-            blogData = fallbackData;
-            await new Promise(resolve => setTimeout(resolve, 500));
-            displayResults();
-            return;
-          } else {
-            console.log('Blog Link Analyzer: No fallback data available');
-          }
-        }
-        
-        if (attempt === maxRetries) {
-          console.log('Blog Link Analyzer: Max retries reached, showing error');
-          
-          // Provide more helpful error messages based on error type
-          let errorMessage = 'Failed to load blog data';
-          if (error.message.includes('timeout')) {
-            errorMessage = 'Loading timed out - page may be slow or content scripts failed to initialize';
-          } else if (error.message.includes('message channel')) {
-            errorMessage = 'Communication error - try refreshing the page and reopening the extension';
-          } else if (error.message.includes('Could not establish connection')) {
-            errorMessage = 'Extension connection error - try restarting your browser';
-          } else if (error.message.includes('Chrome runtime not available')) {
-            errorMessage = 'Extension runtime error - please reload the extension';
-          }
-          
-          showError(`${errorMessage}: ${error.message}`, {
-            errorType: error.name,
-            attempts: maxRetries,
-            tabId: currentTabId,
-            timestamp: Date.now(),
-            fallbackAttempted: true
-          });
-          return;
-        }
-        
-        // Wait before retrying
-        console.log(`Blog Link Analyzer: Will retry after ${retryDelays[attempt - 1]}ms`);
-        updateProgress((attempt - 1) * 25 + 25, `Error occurred, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelays[attempt - 1]));
-      }
-    }
-  }
-
-  // Show loading state with progress
-  function showLoading(message = 'Analyzing page for blog posts...', showProgress = false) {
-    hideAllSections();
-    elements.loadingSection.style.display = 'block';
-    
-    // Update loading text
-    const loadingText = document.getElementById('loading-text');
-    if (loadingText) {
-      loadingText.textContent = message;
-    }
-    
-    // Show/hide progress section
-    const progressSection = document.getElementById('loading-progress');
-    if (progressSection) {
-      progressSection.style.display = showProgress ? 'block' : 'none';
-    }
-    
-    // Reset progress
-    updateProgress(0, 'Initializing...');
-  }
-
-  // Update progress bar
-  function updateProgress(percent, text) {
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-    
-    if (progressFill) {
-      progressFill.style.width = `${percent}%`;
-    }
-    
-    if (progressText) {
-      progressText.textContent = text;
-    }
-  }
-
-  // Update current page display
-  function updateCurrentPageDisplay(url, title) {
-    const pageIndicator = elements.currentPage.querySelector('.page-indicator');
-    const hostname = new URL(url).hostname;
-    pageIndicator.textContent = `${hostname} - ${title.substring(0, 30)}${title.length > 30 ? '...' : ''}`;
-  }
-
   // Initialize popup with proper error handling and performance monitoring
   async function initializePopup() {
     try {
@@ -497,16 +135,10 @@
       // Send keep-alive to wake up service worker
       await sendKeepAlive();
       
-      // Initialize elements first - use the global elements object
-      initializeElements();
-      
-      // Check if critical elements are found
-      const criticalElements = ['settingsButton', 'loadingSection', 'linksSection', 'errorSection'];
-      const missingCritical = criticalElements.filter(id => !elements[id]);
-      
-      if (missingCritical.length > 0) {
-        console.error('Blog Link Analyzer: Missing critical elements:', missingCritical);
-        throw new Error(`Required DOM elements not found: ${missingCritical.join(', ')}`);
+      // Initialize elements first
+      const elements = initializeElements();
+      if (!elements.settingsButton) {
+        throw new Error('Required DOM elements not found');
       }
       
       // Wait for Chrome APIs to be available
@@ -586,17 +218,256 @@
     }
   }
 
+  // Update current page display
+  function updateCurrentPageDisplay(url, title) {
+    const pageIndicator = elements.currentPage.querySelector('.page-indicator');
+    const hostname = new URL(url).hostname;
+    pageIndicator.textContent = `${hostname} - ${title.substring(0, 30)}${title.length > 30 ? '...' : ''}`;
+  }
+
+  // Fallback: Direct storage access when background communication fails
+  async function getBlogDataFromStorage(tabId) {
+    try {
+      console.log('Blog Link Analyzer: [FALLBACK] Attempting direct storage access...');
+      
+      const chromeAPI = getChromeAPI();
+      const result = await chromeAPI.storage.local.get(['blogLinkAnalyzer_data']);
+      const blogData = result.blogLinkAnalyzer_data || {};
+      
+      console.log('Blog Link Analyzer: [FALLBACK] Storage data retrieved:', {
+        hasData: !!blogData,
+        tabIds: Object.keys(blogData).map(id => parseInt(id)),
+        requestedTabId: tabId,
+        foundTabData: !!blogData[tabId]
+      });
+      
+      const data = blogData[tabId] || null;
+      
+      if (data) {
+        console.log('Blog Link Analyzer: [FALLBACK] Found data for tab:', {
+          isBlog: data.isBlog,
+          linkCount: data.blogLinks ? data.blogLinks.length : 0,
+          lastUpdated: data.lastUpdated,
+          extractionComplete: data.extractionComplete,
+          detectionComplete: data.detectionComplete
+        });
+      } else {
+        console.log('Blog Link Analyzer: [FALLBACK] No data found for tab, checking for similar IDs...');
+        
+        // Try to find data with similar tab ID (in case of type mismatch)
+        const numericTabId = parseInt(tabId);
+        const stringTabId = tabId.toString();
+        
+        if (blogData[numericTabId]) {
+          console.log('Blog Link Analyzer: [FALLBACK] Found data with numeric tab ID:', numericTabId);
+          return blogData[numericTabId];
+        } else if (blogData[stringTabId]) {
+          console.log('Blog Link Analyzer: [FALLBACK] Found data with string tab ID:', stringTabId);
+          return blogData[stringTabId];
+        } else {
+          // Try to find the most recent tab data as last resort
+          const tabIds = Object.keys(blogData).map(id => parseInt(id));
+          const recentTabIds = tabIds.sort((a, b) => {
+            const dataA = blogData[a];
+            const dataB = blogData[b];
+            return (dataB?.lastUpdated || 0) - (dataA?.lastUpdated || 0);
+          });
+          
+          console.log('Blog Link Analyzer: [FALLBACK] Trying most recent tab data:', {
+            availableTabIds: tabIds,
+            recentTabIds: recentTabIds.slice(-3), // Last 3 tabs
+            requestedTabId: tabId
+          });
+          
+          // Try the most recent tabs
+          for (const recentTabId of recentTabIds.slice(-3).reverse()) {
+            const recentData = blogData[recentTabId];
+            if (recentData && recentData.blogLinks && recentData.blogLinks.length > 0) {
+              console.log('Blog Link Analyzer: [FALLBACK] Using recent tab data:', recentTabId);
+              return recentData;
+    }
+  }
+  }
+
+  // Enhanced blog data loading with multiple retries and fallback storage access
+  async function loadBlogData() {
+    console.log('Blog Link Analyzer: Starting to load blog data...', {
+      tabId: currentTabId,
+      timestamp: Date.now()
+    });
+    showLoading('Analyzing page for blog posts...', true);
+
+    const maxRetries = 3;
+    const retryDelays = [1000, 2000, 3000]; // Progressive delays
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      let loadingTimeout;
+      
+      try {
+        console.log(`Blog Link Analyzer: Data loading attempt ${attempt}/${maxRetries}`);
+        
+        // Update progress
+        updateProgress((attempt - 1) * 25, `Attempt ${attempt} of ${maxRetries}...`);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          loadingTimeout = setTimeout(() => {
+            reject(new Error(`Data loading timeout after ${CONFIG.REQUEST_TIMEOUT/1000} seconds (attempt ${attempt})`));
+          }, CONFIG.REQUEST_TIMEOUT);
+        });
+
+        console.log(`Blog Link Analyzer: Requesting blog data for tab ID: ${currentTabId} (attempt ${attempt})`);
+        updateProgress((attempt - 1) * 25 + 10, 'Requesting data from background...');
+        
+        const dataPromise = sendMessage({
+          type: 'GET_BLOG_DATA',
+          tabId: currentTabId
+        });
+
+        const response = await Promise.race([dataPromise, timeoutPromise]);
+        clearTimeout(loadingTimeout);
+
+        console.log(`Blog Link Analyzer: Received response on attempt ${attempt}:`, {
+          success: response?.success,
+          hasData: !!response?.data,
+          isBlog: response?.data?.isBlog,
+          linkCount: response?.data?.blogLinks?.length || 0,
+          isFallback: response?.data?.fallbackData,
+          extractionComplete: response?.data?.extractionComplete,
+          detectionComplete: response?.data?.detectionComplete
+        });
+
+        // If no data found, try fallback storage access immediately
+        if (response && response.success && (!response.data || !response.data.hasData)) {
+          console.log('Blog Link Analyzer: No data from background, trying fallback storage access...');
+          updateProgress((attempt - 1) * 25 + 15, 'Trying fallback storage access...');
+          
+          const fallbackData = await getBlogDataFromStorage(currentTabId);
+          
+          if (fallbackData) {
+            console.log('Blog Link Analyzer: Fallback data found, using it');
+            updateProgress(100, 'Loading complete from fallback!');
+            blogData = fallbackData;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            displayResults();
+            return;
+          } else {
+            console.log('Blog Link Analyzer: No fallback data available, continuing retry...');
+          }
+        }
+
+        updateProgress((attempt - 1) * 25 + 20, 'Processing response...');
+
+        if (response && response.success && response.data) {
+          blogData = response.data;
+          
+          // Check if we should wait for content scripts to finish
+          if (!blogData.extractionComplete || !blogData.detectionComplete) {
+            console.log(`Blog Link Analyzer: Content scripts not finished on attempt ${attempt}, checking if we should retry...`);
+            updateProgress((attempt - 1) * 25 + 25, 'Waiting for content scripts to finish...');
+            
+            if (attempt < maxRetries) {
+              console.log(`Blog Link Analyzer: Will retry after ${retryDelays[attempt - 1]}ms`);
+              updateProgress((attempt - 1) * 25 + 30, `Retrying in ${retryDelays[attempt - 1] / 1000} seconds...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelays[attempt - 1]));
+              continue;
+            } else {
+              console.log('Blog Link Analyzer: Max retries reached, proceeding with available data');
+              updateProgress(90, 'Proceeding with available data...');
+            }
+          }
+          
+          updateProgress(100, 'Loading complete!');
+          
+          console.log('Blog Link Analyzer: Blog data loaded successfully:', {
+            isBlog: blogData.isBlog,
+            linkCount: blogData.blogLinks ? blogData.blogLinks.length : 0,
+            extractionComplete: blogData.extractionComplete,
+            detectionComplete: blogData.detectionComplete
+          });
+          
+          // Small delay to show completion
+          await new Promise(resolve => setTimeout(resolve, 500));
+          displayResults();
+          return; // Success, exit the retry loop
+        } else {
+          console.log(`Blog Link Analyzer: No blog data found on attempt ${attempt}`);
+          
+          if (attempt === maxRetries) {
+            showNoResults('No blog data found for this page after multiple attempts.');
+            return;
+          }
+        }
+      } catch (error) {
+        clearTimeout(loadingTimeout);
+        console.error(`Blog Link Analyzer: Error loading blog data on attempt ${attempt}:`, error);
+        
+        // Try fallback storage access on final attempt or for specific errors
+        if (attempt === maxRetries || 
+            error.message.includes('message channel') || 
+            error.message.includes('Could not establish connection') ||
+            error.message.includes('Chrome runtime not available')) {
+          
+          console.log('Blog Link Analyzer: Trying fallback storage access...');
+          updateProgress(80, 'Trying fallback storage access...');
+          
+          const fallbackData = await getBlogDataFromStorage(currentTabId);
+          
+          if (fallbackData) {
+            console.log('Blog Link Analyzer: Fallback data found, using it');
+            updateProgress(100, 'Loading complete from fallback!');
+            blogData = fallbackData;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            displayResults();
+            return;
+          } else {
+            console.log('Blog Link Analyzer: No fallback data available');
+          }
+        }
+        
+        if (attempt === maxRetries) {
+          console.log('Blog Link Analyzer: Max retries reached, showing error');
+          
+          // Provide more helpful error messages based on error type
+          let errorMessage = 'Failed to load blog data';
+          if (error.message.includes('timeout')) {
+            errorMessage = 'Loading timed out - page may be slow or content scripts failed to initialize';
+          } else if (error.message.includes('message channel')) {
+            errorMessage = 'Communication error - try refreshing the page and reopening the extension';
+          } else if (error.message.includes('Could not establish connection')) {
+            errorMessage = 'Extension connection error - try restarting your browser';
+          } else if (error.message.includes('Chrome runtime not available')) {
+            errorMessage = 'Extension runtime error - please reload the extension';
+          }
+          
+          showError(`${errorMessage}: ${error.message}`, {
+            errorType: error.name,
+            attempts: maxRetries,
+            tabId: currentTabId,
+            timestamp: Date.now(),
+            fallbackAttempted: true
+          });
+          return;
+        }
+        
+        // Wait before retrying
+        console.log(`Blog Link Analyzer: Will retry after ${retryDelays[attempt - 1]}ms`);
+        updateProgress((attempt - 1) * 25 + 25, `Error occurred, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelays[attempt - 1]));
+      }
+    }
+  }
+
   // Display results with enhanced fallback handling
   function displayResults() {
-    console.log('Blog Link Analyzer: [POPUP] Displaying results...', {
+    console.log('Blog Link Analyzer: Displaying results...', {
       hasBlogData: !!blogData,
       hasBlogLinks: !!(blogData && blogData.blogLinks),
       linkCount: blogData && blogData.blogLinks ? blogData.blogLinks.length : 0,
       isBlog: blogData?.isBlog,
       extractionComplete: blogData?.extractionComplete,
       detectionComplete: blogData?.detectionComplete,
-      isFallback: blogData?.fallbackData,
-      fullBlogData: blogData
+      isFallback: blogData?.fallbackData
     });
 
     // Handle fallback data or incomplete processing
@@ -606,37 +477,23 @@
       return;
     }
 
-    // Handle incomplete processing - but be more lenient if we have actual blog links
-    const hasBlogLinks = blogData?.blogLinks && blogData.blogLinks.length > 0;
-    const isMissingFlags = !blogData?.extractionComplete || !blogData?.detectionComplete;
-    
-    if (isMissingFlags && !hasBlogLinks) {
-      console.log('Blog Link Analyzer: [POPUP] Showing incomplete processing message');
-      console.log('Blog Link Analyzer: [POPUP] Incomplete details:', {
-        extractionComplete: blogData?.extractionComplete,
-        detectionComplete: blogData?.detectionComplete,
-        isBlog: blogData?.isBlog,
-        linkCount: blogData?.blogLinks?.length || 0
-      });
-      showNoResults(`Content analysis incomplete. Extraction: ${blogData?.extractionComplete}, Detection: ${blogData?.detectionComplete}, Blog: ${blogData?.isBlog}, Links: ${blogData?.blogLinks?.length || 0}`);
+    // Handle incomplete processing
+    if (!blogData?.extractionComplete || !blogData?.detectionComplete) {
+      console.log('Blog Link Analyzer: Processing incomplete, showing loading message');
+      showNoResults('Content analysis is still in progress. Please wait a moment and try again.');
       return;
-    }
-    
-    // If we have blog links but missing flags, show them anyway with a warning
-    if (isMissingFlags && hasBlogLinks) {
-      console.log('Blog Link Analyzer: [POPUP] Showing results despite missing flags (have actual links)');
     }
 
     // Handle non-blog pages
     if (!blogData?.isBlog) {
-      console.log('Blog Link Analyzer: Showing non-blog page message');
+      console.log('Blog Link Analyzer: Not a blog page, showing appropriate message');
       showNoResults('This page doesn\'t appear to be a blog post. Try opening a blog post and then use the extension.');
       return;
     }
 
     // Handle no blog links found
     if (!blogData.blogLinks || blogData.blogLinks.length === 0) {
-      console.log('Blog Link Analyzer: Showing no results message');
+      console.log('Blog Link Analyzer: No blog links found, showing no results');
       showNoResults('No blog post links found on this page. This might be a standalone blog post without related links.');
       return;
     }
@@ -738,7 +595,7 @@
       const expandButton = clone.querySelector('.expand-button');
       if (link.isInternal && currentDepth < CONFIG.MAX_DEPTH) {
         expandButton.addEventListener('click', () => toggleNestedLinks(link.id, expandButton));
-        expandButton.title = `Show nested links from "${link.title || link.text}"`;
+        expandButton.title = `Explore links from "${link.title || link.text}"`;
       } else {
         expandButton.style.display = 'none';
       }
@@ -808,7 +665,6 @@
       if (!nestedContainer.dataset.loaded) {
         await loadNestedLinks(linkId, nestedContainer);
         nestedContainer.dataset.loaded = 'true';
-      }
     }
   }
 
@@ -962,61 +818,55 @@
     }
   }
 
+  // Show loading state with progress
+  function showLoading(message = 'Analyzing page for blog posts...', showProgress = false) {
+    hideAllSections();
+    elements.loadingSection.style.display = 'block';
+    
+    // Update loading text
+    const loadingText = document.getElementById('loading-text');
+    if (loadingText) {
+      loadingText.textContent = message;
+    }
+    
+    // Show/hide progress section
+    const progressSection = document.getElementById('loading-progress');
+    if (progressSection) {
+      progressSection.style.display = showProgress ? 'block' : 'none';
+    }
+    
+    // Reset progress
+    updateProgress(0, 'Initializing...');
+  }
+
+  // Update progress bar
+  function updateProgress(percent, text) {
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    
+    if (progressFill) {
+      progressFill.style.width = `${percent}%`;
+    }
+    
+    if (progressText) {
+      progressText.textContent = text;
+    }
+  }
+
   // Show no results state
   function showNoResults(message) {
-    console.log('Blog Link Analyzer: Showing no results:', message);
-    
-    // Try to hide sections, but don't fail if elements aren't ready
-    try {
-      hideAllSections();
-    } catch (e) {
-      console.warn('Blog Link Analyzer: Could not hide sections:', e);
-    }
-    
-    // Try to show no results section
-    if (elements.noResultsSection) {
-      elements.noResultsSection.style.display = 'block';
-      const noResultsMessage = document.getElementById('no-results-message');
-      if (noResultsMessage) {
-        noResultsMessage.textContent = message;
-      }
-    } else {
-      // Fallback to error display
-      showError(message);
-    }
+    hideAllSections();
+    elements.noResultsSection.style.display = 'block';
+    document.getElementById('no-results-message').textContent = message;
   }
 
   // Show error state with enhanced information
   function showError(message, errorInfo = null) {
-    console.error('Blog Link Analyzer: Showing error:', message);
+    hideAllSections();
+    elements.errorSection.style.display = 'block';
     
-    // Try to hide sections, but don't fail if elements aren't ready
-    try {
-      hideAllSections();
-    } catch (e) {
-      console.warn('Blog Link Analyzer: Could not hide sections:', e);
-    }
-    
-    // Try to show error section
-    if (elements.errorSection) {
-      elements.errorSection.style.display = 'block';
-      
-      const errorMessage = document.getElementById('error-message');
-      if (errorMessage) {
-        errorMessage.textContent = message;
-      }
-    } else {
-      // Fallback: create error display manually
-      document.body.innerHTML = `
-        <div style="padding: 20px; text-align: center; color: #d32f2f;">
-          <h3>Extension Error</h3>
-          <p>${message}</p>
-          <button onclick="location.reload()" style="padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Reload Extension
-          </button>
-        </div>
-      `;
-    }
+    const errorMessage = document.getElementById('error-message');
+    errorMessage.textContent = message;
     
     // Add debug information if available
     if (errorInfo) {
@@ -1082,10 +932,10 @@
 
   // Hide all sections
   function hideAllSections() {
-    if (elements.loadingSection) elements.loadingSection.style.display = 'none';
-    if (elements.noResultsSection) elements.noResultsSection.style.display = 'none';
-    if (elements.errorSection) elements.errorSection.style.display = 'none';
-    if (elements.linksSection) elements.linksSection.style.display = 'none';
+    elements.loadingSection.style.display = 'none';
+    elements.noResultsSection.style.display = 'none';
+    elements.errorSection.style.display = 'none';
+    elements.linksSection.style.display = 'none';
   }
 
   // Show toast notification
@@ -1247,6 +1097,74 @@
     } else {
       elements.linksLabel.textContent = `level ${currentDepth} posts`;
     }
+  }
+
+  // Enhanced message sending with queuing and deduplication
+  function sendMessage(message) {
+    return new Promise((resolve, reject) => {
+      try {
+        const chromeAPI = getChromeAPI();
+        const requestId = `${message.type}_${Date.now()}_${Math.random()}`;
+        
+        // Add to active requests
+        activeRequests.add(requestId);
+        
+        console.log(`Blog Link Analyzer: [POPUP] Sending message ${requestId}:`, {
+          type: message.type,
+          tabId: message.tabId,
+          url: message.url,
+          timestamp: Date.now(),
+          chromeAPIAvailable: !!chromeAPI,
+          runtimeAvailable: !!(chromeAPI && chromeAPI.runtime),
+          runtimeId: chromeAPI?.runtime?.id
+        });
+        
+        // Check if runtime is available before sending
+        if (!chromeAPI || !chromeAPI.runtime) {
+          const error = new Error('Chrome runtime not available');
+          console.error(`Blog Link Analyzer: [POPUP] Chrome runtime check failed:`, {
+            chromeAPI: !!chromeAPI,
+            runtime: !!(chromeAPI && chromeAPI.runtime),
+            id: chromeAPI?.runtime?.id
+          });
+          activeRequests.delete(requestId);
+          reject(error);
+          return;
+        }
+        
+        chromeAPI.runtime.sendMessage(message, (response) => {
+          activeRequests.delete(requestId);
+          
+          if (chromeAPI.runtime.lastError) {
+            const error = new Error(chromeAPI.runtime.lastError.message);
+            error.code = chromeAPI.runtime.lastError.code;
+            console.error(`Blog Link Analyzer: [POPUP] Message ${requestId} failed:`, {
+              error: chromeAPI.runtime.lastError,
+              messageType: message.type,
+              tabId: message.tabId,
+              requestId: requestId
+            });
+            reject(error);
+          } else {
+            console.log(`Blog Link Analyzer: [POPUP] Message ${requestId} completed:`, {
+              response: response,
+              messageType: message.type,
+              tabId: message.tabId,
+              requestId: requestId
+            });
+            resolve(response);
+          }
+        });
+      } catch (error) {
+        console.error(`Blog Link Analyzer: [POPUP] Failed to send message:`, {
+          error: error.message,
+          stack: error.stack,
+          messageType: message.type,
+          tabId: message.tabId
+        });
+        reject(new Error(`Failed to send message: ${error.message}`));
+      }
+    });
   }
 
   // Request queuing for nested links
@@ -1431,6 +1349,7 @@
 
   // Initialize elements when DOM is ready
   function initializeElements() {
+    const elements = {};
     const elementIds = [
       'link-count', 'filtered-count', 'current-page', 'search-input', 'search-clear',
       'show-internal-only', 'show-extracted-only', 'loading-section', 'loading-text',
@@ -1442,19 +1361,16 @@
     ];
     
     elementIds.forEach(id => {
-      // Convert kebab-case to camelCase for property names
-      const propertyName = id.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
-      elements[propertyName] = getElementWithLog(id);
+      elements[id.replace(/-/g, '')] = document.getElementById(id);
     });
     
-    // Log overall DOM state
-    console.log('Blog Link Analyzer: DOM Elements Summary:', {
+    console.log('Blog Link Analyzer: Elements initialized:', {
       totalElements: elementIds.length,
       foundElements: Object.values(elements).filter(el => !!el).length,
-      missingElements: Object.entries(elements).filter(([id, el]) => !el).map(([id]) => id),
-      domReady: document.readyState,
-      bodyExists: !!document.body
+      missingElements: Object.entries(elements).filter(([id, el]) => !el).map(([id]) => id)
     });
+    
+    return elements;
   }
 
   // Initialize when DOM is ready with enhanced error handling
@@ -1462,23 +1378,47 @@
     try {
       console.log('Blog Link Analyzer: Safe initialize called, readyState:', document.readyState);
       
-      if (document.readyState === 'loading') {
-        console.log('Blog Link Analyzer: DOM still loading, adding DOMContentLoaded listener');
-        document.addEventListener('DOMContentLoaded', initializePopup);
-      } else {
-        console.log('Blog Link Analyzer: DOM ready, attempting immediate initialization');
-        // Use a small timeout to ensure DOM is fully processed
-        setTimeout(initializePopup, 10);
+      // Always try to initialize immediately, but also add DOMContentLoaded as fallback
+      console.log('Blog Link Analyzer: Attempting immediate initialization');
+      
+      try {
+        initializePopup();
+      } catch (initError) {
+        console.error('Blog Link Analyzer: Immediate initialization failed:', initError);
+        
+        // Add DOMContentLoaded listener as fallback
+        if (document.readyState === 'loading') {
+          console.log('Blog Link Analyzer: Adding DOMContentLoaded listener as fallback');
+          document.addEventListener('DOMContentLoaded', () => {
+            console.log('Blog Link Analyzer: DOM content loaded, trying initialization again');
+            try {
+              initializePopup();
+            } catch (fallbackError) {
+              console.error('Blog Link Analyzer: Fallback initialization also failed:', fallbackError);
+              showError('Critical error during initialization: ' + fallbackError.message);
+            }
+          });
+        } else {
+          console.error('Blog Link Analyzer: DOM ready but initialization failed');
+          showError('Critical error during initialization: ' + initError.message);
+        }
       }
     } catch (error) {
       console.error('Blog Link Analyzer: Critical initialization error:', error);
-      // Don't call showError here as elements might not be ready
-      setTimeout(() => {
-        showError('Critical error during initialization: ' + error.message);
-      }, 100);
+      showError('Critical error during initialization: ' + error.message);
     }
   }
 
+  // Cleanup on popup close
+  window.addEventListener('unload', () => {
+    if (window.cleanupListeners) {
+      window.cleanupListeners();
+    }
+  });
+
+  // Start initialization
+  console.log('Blog Link Analyzer: About to call safeInitialize');
+  
   // Set up periodic keep-alive while popup is open
   let keepAliveInterval;
   
@@ -1494,37 +1434,42 @@
       console.log('Blog Link Analyzer: [POPUP] Stopped periodic keep-alive');
     }
   }
-
+  
+  // Test if popup is working
+  setTimeout(() => {
+    console.log('Blog Link Analyzer: Popup test timeout reached');
+    
+    // Manual DOM access test
+    const testElement = document.getElementById('loading-section');
+    console.log('Blog Link Analyzer: Manual DOM test:', {
+      elementFound: !!testElement,
+      elementId: 'loading-section',
+      documentReady: document.readyState,
+      bodyExists: !!document.body
+    });
+    
+    if (testElement) {
+      console.log('Blog Link Analyzer: Loading section found, updating text');
+      const textElement = testElement.querySelector('.loading-text');
+      if (textElement) {
+        textElement.textContent = 'Popup is working but stuck...';
+      } else {
+        console.error('Blog Link Analyzer: Loading text element NOT FOUND');
+      }
+    } else {
+      console.error('Blog Link Analyzer: Loading section NOT FOUND');
+    }
+  }, 2000);
+  
   // Start keep-alive when popup opens, stop when it closes
   window.addEventListener('load', startPopupKeepAlive);
   window.addEventListener('unload', stopPopupKeepAlive);
-
+  
   console.log('Blog Link Analyzer: About to call safeInitialize');
+  safeInitialize();
   
-  // SIMPLIFIED INITIALIZATION - Just try immediately with fallback
-  try {
-    console.log('Blog Link Analyzer: Attempting immediate initialization');
-    safeInitialize();
-  } catch (error) {
-    console.error('Blog Link Analyzer: Immediate init failed, trying DOMContentLoaded:', error);
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Blog Link Analyzer: DOMContentLoaded fallback');
-      try {
-        safeInitialize();
-      } catch (fallbackError) {
-        console.error('Blog Link Analyzer: Fallback also failed:', fallbackError);
-        // Last resort - show basic error
-        document.body.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: red;">
-            <h3>Extension Error</h3>
-            <p>Failed to initialize: ${fallbackError.message}</p>
-            <button onclick="location.reload()">Reload</button>
-          </div>
-        `;
-      }
-    });
-  }
-  
+  console.log('Blog Link Analyzer: Popup script initialization completed');
+
   console.log('Blog Link Analyzer: Popup script initialization completed');
 
 })();

@@ -148,44 +148,89 @@
     return document.body;
   }
 
-  // Initialize blog detection
+  // Enhanced message sending with retry
+  function sendMessageWithRetry(message, maxRetries = 3, delay = 500) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      
+      function attemptSend() {
+        attempts++;
+        console.log(`Blog Link Analyzer: Sending message attempt ${attempts}/${maxRetries}:`, message.type);
+        
+        try {
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage(message, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(`Blog Link Analyzer: Message attempt ${attempts} failed:`, chrome.runtime.lastError);
+                
+                if (attempts < maxRetries) {
+                  setTimeout(attemptSend, delay * attempts);
+                } else {
+                  reject(new Error(`Failed after ${maxRetries} attempts: ${chrome.runtime.lastError.message}`));
+                }
+              } else {
+                console.log(`Blog Link Analyzer: Message sent successfully on attempt ${attempts}:`, response);
+                resolve(response);
+              }
+            });
+          } else {
+            reject(new Error('Chrome runtime not available'));
+          }
+        } catch (error) {
+          console.error(`Blog Link Analyzer: Message attempt ${attempts} threw error:`, error);
+          
+          if (attempts < maxRetries) {
+            setTimeout(attemptSend, delay * attempts);
+          } else {
+            reject(error);
+          }
+        }
+      }
+      
+      attemptSend();
+    });
+  }
+
+  // Initialize blog detection with enhanced timing and error handling
   function initializeBlogDetection() {
     try {
-      console.log('Blog Link Analyzer: Starting blog detection...');
+      console.log('Blog Link Analyzer: Starting blog detection...', {
+        readyState: document.readyState,
+        url: window.location.href,
+        timestamp: Date.now()
+      });
+      
       const blogInfo = isBlogPost();
       
       if (blogInfo.isBlog) {
         console.log('Blog Link Analyzer: Blog post detected', blogInfo);
         
-        // Store blog info for other scripts
+        // Store blog info for other scripts with initialization flag
         window.blogLinkAnalyzerData = {
           isBlog: true,
           blogInfo: blogInfo,
-          mainContent: getMainContent()
+          mainContent: getMainContent(),
+          detectionComplete: true,
+          detectionTimestamp: Date.now()
         };
 
-        // Send message to background script with error handling
-        try {
-          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-            chrome.runtime.sendMessage({
-              type: 'BLOG_DETECTED',
-              payload: blogInfo
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.error('Blog Link Analyzer: Error sending blog detected message:', chrome.runtime.lastError);
-              } else {
-                console.log('Blog Link Analyzer: Blog detected message sent successfully');
-              }
-            });
-          }
-        } catch (messageError) {
-          console.error('Blog Link Analyzer: Failed to send blog detected message:', messageError);
-        }
+        // Send message to background script with retry mechanism
+        sendMessageWithRetry({
+          type: 'BLOG_DETECTED',
+          payload: blogInfo,
+          timestamp: Date.now()
+        }).then((response) => {
+          console.log('Blog Link Analyzer: Blog detected message confirmed by background');
+        }).catch((error) => {
+          console.error('Blog Link Analyzer: Failed to send blog detected message after retries:', error);
+        });
       } else {
         console.log('Blog Link Analyzer: Not a blog post', blogInfo);
         window.blogLinkAnalyzerData = {
           isBlog: false,
-          blogInfo: blogInfo
+          blogInfo: blogInfo,
+          detectionComplete: true,
+          detectionTimestamp: Date.now()
         };
       }
     } catch (error) {
@@ -193,7 +238,10 @@
       // Store minimal data to prevent complete failure
       window.blogLinkAnalyzerData = {
         isBlog: false,
-        blogInfo: { isBlog: false, confidence: 0, error: error.message }
+        blogInfo: { isBlog: false, confidence: 0, error: error.message },
+        detectionComplete: true,
+        detectionTimestamp: Date.now(),
+        criticalError: true
       };
     }
   }
