@@ -2,9 +2,16 @@
 (function() {
   'use strict';
 
-  // Import browser compatibility layer
-  // Note: In a real extension, this would be imported as a separate file
-  const chrome = typeof browser !== 'undefined' ? browser : chrome;
+  // Browser compatibility layer - safely get APIs
+  function getChromeAPI() {
+    if (typeof browser !== 'undefined' && browser.runtime) {
+      return browser; // Firefox
+    } else if (typeof chrome !== 'undefined' && chrome.runtime) {
+      return chrome; // Chrome
+    } else {
+      throw new Error('Browser APIs not available');
+    }
+  }
 
   // Storage keys
   const STORAGE_KEYS = {
@@ -16,9 +23,10 @@
   // Initialize storage
   async function initializeStorage() {
     try {
-      const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      const api = getChromeAPI();
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       if (!result[STORAGE_KEYS.BLOG_DATA]) {
-        await chrome.storage.local.set({
+        await api.storage.local.set({
           [STORAGE_KEYS.BLOG_DATA]: {}
         });
       }
@@ -35,7 +43,8 @@
         linkCount: data.blogLinks ? data.blogLinks.length : 0
       });
       
-      const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      const api = getChromeAPI();
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
       
       blogData[tabId] = {
@@ -43,7 +52,7 @@
         lastUpdated: Date.now()
       };
 
-      await chrome.storage.local.set({
+      await api.storage.local.set({
         [STORAGE_KEYS.BLOG_DATA]: blogData
       });
 
@@ -62,15 +71,19 @@
     try {
       console.log(`Blog Link Analyzer: Getting blog data for tab ${tabId}`);
       
-      const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      const api = getChromeAPI();
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
+      console.log(`Blog Link Analyzer: All stored blog data keys:`, Object.keys(blogData));
+      console.log(`Blog Link Analyzer: Looking for tab ID: ${tabId}, available IDs:`, Object.keys(blogData).map(k => parseInt(k)));
       const data = blogData[tabId] || null;
       
       console.log(`Blog Link Analyzer: Retrieved blog data for tab ${tabId}:`, {
         hasData: !!data,
         isBlog: data?.isBlog,
         linkCount: data?.blogLinks ? data.blogLinks.length : 0,
-        lastUpdated: data?.lastUpdated
+        lastUpdated: data?.lastUpdated,
+        dataKeys: data ? Object.keys(data) : null
       });
       
       return data;
@@ -87,10 +100,11 @@
   // Clean up old data (remove data for closed tabs)
   async function cleanupOldData() {
     try {
-      const tabs = await chrome.tabs.query({});
+      const api = getChromeAPI();
+      const tabs = await api.tabs.query({});
       const activeTabIds = new Set(tabs.map(tab => tab.id));
 
-      const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
       const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
 
       let cleaned = false;
@@ -102,7 +116,7 @@
       }
 
       if (cleaned) {
-        await chrome.storage.local.set({
+        await api.storage.local.set({
           [STORAGE_KEYS.BLOG_DATA]: blogData
         });
         console.log('Blog Link Analyzer: Cleaned up old data');
@@ -113,7 +127,8 @@
   }
 
   // Handle messages from content scripts and popup
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  function setupMessageListener() {
+    getChromeAPI().runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Blog Link Analyzer: Received message:', message.type, 'from tab:', sender.tab?.id);
     
     (async () => {
@@ -145,12 +160,13 @@
             break;
 
           case 'GET_BLOG_DATA':
-            console.log('Blog Link Analyzer: Requesting blog data for tab:', message.tabId);
+            console.log('Blog Link Analyzer: Requesting blog data for tab:', message.tabId, 'from sender tab:', sender.tab?.id);
             const data = await getBlogData(message.tabId);
             console.log('Blog Link Analyzer: Retrieved blog data:', {
               hasData: !!data,
               isBlog: data?.isBlog,
-              linkCount: data?.blogLinks ? data.blogLinks.length : 0
+              linkCount: data?.blogLinks ? data.blogLinks.length : 0,
+              lastUpdated: data?.lastUpdated
             });
             sendResponse({ success: true, data: data });
             break;
@@ -177,16 +193,18 @@
       }
     })();
 
-    return true; // Keep message channel open for async response
-  });
+      return true; // Keep message channel open for async response
+    });
+  }
 
   // Fetch nested links for a given URL
   async function fetchNestedLinksForUrl(url) {
     try {
       console.log('Blog Link Analyzer: Fetching nested links for', url);
       
+      const api = getChromeAPI();
       // Create a new tab to analyze the linked page
-      const tab = await chrome.tabs.create({
+      const tab = await api.tabs.create({
         url: url,
         active: false
       });
@@ -195,13 +213,16 @@
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       try {
+        // Wait a bit longer for content scripts to inject
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Get the blog data from the new tab
-        const result = await chrome.tabs.sendMessage(tab.id, {
+        const result = await api.tabs.sendMessage(tab.id, {
           type: 'GET_BLOG_LINKS'
         });
 
         // Close the temporary tab
-        await chrome.tabs.remove(tab.id);
+        await api.tabs.remove(tab.id);
 
         if (result && result.success && result.data && result.data.blogLinks) {
           return {
@@ -219,7 +240,7 @@
         }
       } catch (messageError) {
         // Close the temporary tab if there was an error
-        await chrome.tabs.remove(tab.id).catch(() => {});
+        await api.tabs.remove(tab.id).catch(() => {});
         throw messageError;
       }
     } catch (error) {
@@ -234,7 +255,8 @@
   }
 
   // Handle tab updates (re-run analysis when page changes)
-  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  function setupTabListeners() {
+    getChromeAPI().tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
       // Clear existing data for this tab
       await storeBlogData(tabId, null);
@@ -245,55 +267,122 @@
         if (data && data.isBlog) {
           console.log('Blog Link Analyzer: Blog detected on updated tab', tab.url);
         }
-      }, 2000);
-    }
-  });
+        }, 2000);
+      }
+    });
 
-  // Handle tab removal (clean up data)
-  chrome.tabs.onRemoved.addListener(async (tabId) => {
-    try {
-      const result = await chrome.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
-      const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
-      delete blogData[tabId];
-      await chrome.storage.local.set({
-        [STORAGE_KEYS.BLOG_DATA]: blogData
-      });
-      console.log(`Blog Link Analyzer: Cleaned up data for tab ${tabId}`);
-    } catch (error) {
-      console.error('Blog Link Analyzer: Error cleaning up tab data:', error);
-    }
-  });
+    // Handle tab removal (clean up data)
+    getChromeAPI().tabs.onRemoved.addListener(async (tabId) => {
+      try {
+        const api = getChromeAPI();
+        const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+        const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
+        delete blogData[tabId];
+        await api.storage.local.set({
+          [STORAGE_KEYS.BLOG_DATA]: blogData
+        });
+        console.log(`Blog Link Analyzer: Cleaned up data for tab ${tabId}`);
+      } catch (error) {
+        console.error('Blog Link Analyzer: Error cleaning up tab data:', error);
+      }
+    });
+  }
+
+
 
   // Clean up old data periodically
-  chrome.alarms.create('cleanup', { periodInMinutes: 30 });
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'cleanup') {
-      cleanupOldData();
-    }
-  });
+  function setupAlarms() {
+    getChromeAPI().alarms.create('cleanup', { periodInMinutes: 30 });
+    getChromeAPI().alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === 'cleanup') {
+        cleanupOldData();
+      }
+    });
+  }
 
   // Initialize on startup
-  chrome.runtime.onStartup.addListener(async () => {
-    console.log('Blog Link Analyzer: Service worker started');
-    await initializeStorage();
-    await cleanupOldData();
-  });
+  function setupStartupListener() {
+    getChromeAPI().runtime.onStartup.addListener(async () => {
+      console.log('Blog Link Analyzer: Service worker started');
+      await initializeStorage();
+      await cleanupOldData();
+    });
+  }
 
   // Initialize on install
-  chrome.runtime.onInstalled.addListener(async (details) => {
-    console.log('Blog Link Analyzer: Extension installed/updated', details);
-    await initializeStorage();
-    
-    if (details.reason === 'install') {
-      // Show welcome message or set default preferences
-      await chrome.storage.local.set({
-        [STORAGE_KEYS.USER_PREFERENCES]: {
-          maxLinks: 50,
-          showExternalLinks: true,
-          autoExpand: false
-        }
-      });
+  function setupInstallListener() {
+    getChromeAPI().runtime.onInstalled.addListener(async (details) => {
+      console.log('Blog Link Analyzer: Extension installed/updated', details);
+      await initializeStorage();
+      
+      if (details.reason === 'install') {
+        // Show welcome message or set default preferences
+        const api = getChromeAPI();
+        await api.storage.local.set({
+          [STORAGE_KEYS.USER_PREFERENCES]: {
+            maxLinks: 50,
+            showExternalLinks: true,
+            autoExpand: false
+          }
+        });
+      }
+    });
+  }
+
+  // Main initialization function
+  function initializeServiceWorker() {
+    try {
+      console.log('Blog Link Analyzer: Initializing service worker...');
+      
+      // Check if APIs are available before setting up listeners
+      if (typeof chrome === 'undefined' && typeof browser === 'undefined') {
+        console.error('Blog Link Analyzer: Browser APIs not available during initialization');
+        return;
+      }
+      
+      // Setup all event listeners with error handling
+      try {
+        setupMessageListener();
+        console.log('Blog Link Analyzer: Message listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup message listener:', error);
+      }
+      
+      try {
+        setupTabListeners();
+        console.log('Blog Link Analyzer: Tab listeners setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup tab listeners:', error);
+      }
+      
+      try {
+        setupAlarms();
+        console.log('Blog Link Analyzer: Alarms setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup alarms:', error);
+      }
+      
+      try {
+        setupStartupListener();
+        console.log('Blog Link Analyzer: Startup listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup startup listener:', error);
+      }
+      
+      try {
+        setupInstallListener();
+        console.log('Blog Link Analyzer: Install listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup install listener:', error);
+      }
+      
+      console.log('Blog Link Analyzer: Service worker initialized successfully');
+    } catch (error) {
+      console.error('Blog Link Analyzer: Service worker initialization failed:', error);
     }
-  });
+  }
+
+  // Initialize when the script loads
+  initializeServiceWorker();
 
 })();

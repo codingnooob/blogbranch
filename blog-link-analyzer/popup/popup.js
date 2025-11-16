@@ -1,6 +1,8 @@
 // Blog Link Analyzer Popup Script
 (function() {
   'use strict';
+  
+  console.log('Blog Link Analyzer: Popup script loaded');
 
   // State management
   let currentTabId = null;
@@ -26,7 +28,9 @@
     retryButton: document.getElementById('retry-button'),
     errorRetryButton: document.getElementById('error-retry-button'),
     refreshButton: document.getElementById('refresh-button'),
-    settingsButton: document.getElementById('settings-button')
+    settingsButton: document.getElementById('settings-button'),
+    toast: document.getElementById('toast'),
+    toastMessage: document.getElementById('toast-message')
   };
 
   // Check if Chrome APIs are available
@@ -106,7 +110,7 @@
 
       const tab = tabs[0];
       currentTabId = tab.id;
-      console.log(`Blog Link Analyzer: Current tab ID: ${currentTabId}`);
+      console.log(`Blog Link Analyzer: Current tab ID: ${currentTabId}, URL: ${tab.url}`);
 
       // Update current page display
       updateCurrentPageDisplay(tab.url, tab.title);
@@ -165,6 +169,7 @@
     });
 
     try {
+      console.log(`Blog Link Analyzer: Requesting blog data for tab ID: ${currentTabId}`);
       const dataPromise = sendMessage({
         type: 'GET_BLOG_DATA',
         tabId: currentTabId
@@ -520,6 +525,21 @@
     elements.linksSection.style.display = 'none';
   }
 
+  // Show toast notification
+  function showToast(message, duration = 3000) {
+    if (!elements.toast || !elements.toastMessage) return;
+    
+    elements.toastMessage.textContent = message;
+    elements.toast.classList.add('show');
+    
+    // Auto-hide after duration
+    setTimeout(() => {
+      if (elements.toast) {
+        elements.toast.classList.remove('show');
+      }
+    }, duration);
+  }
+
   // Send message to background script with enhanced error handling
   function sendMessage(message) {
     return new Promise((resolve, reject) => {
@@ -581,7 +601,7 @@
 
     // Settings button (placeholder)
     elements.settingsButton.addEventListener('click', () => {
-      alert('Settings coming soon!');
+      showToast('Settings coming soon! 🚧');
     });
 
     // Keyboard shortcuts
@@ -611,9 +631,12 @@
   // Initialize when DOM is ready with enhanced error handling
   function safeInitialize() {
     try {
+      console.log('Blog Link Analyzer: Safe initialize called, readyState:', document.readyState);
       if (document.readyState === 'loading') {
+        console.log('Blog Link Analyzer: Adding DOMContentLoaded listener');
         document.addEventListener('DOMContentLoaded', initializePopup);
       } else {
+        console.log('Blog Link Analyzer: DOM already ready, initializing immediately');
         // DOM is already ready, initialize immediately
         initializePopup();
       }
@@ -631,6 +654,20 @@
   });
 
   // Start initialization
+  console.log('Blog Link Analyzer: About to call safeInitialize');
+  
+  // Test if popup is working
+  setTimeout(() => {
+    console.log('Blog Link Analyzer: Popup test timeout reached');
+    const loadingSection = document.getElementById('loading-section');
+    if (loadingSection) {
+      console.log('Blog Link Analyzer: Loading section found, updating text');
+      loadingSection.querySelector('.loading-text').textContent = 'Popup is working but stuck...';
+    } else {
+      console.log('Blog Link Analyzer: Loading section NOT found');
+    }
+  }, 2000);
+  
   safeInitialize();
 
 })();

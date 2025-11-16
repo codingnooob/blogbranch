@@ -134,9 +134,11 @@
           const confidence = calculateBlogLinkConfidence(href, text, link.parentElement.textContent);
           
           if (confidence >= 0.3) {
+            // Convert to absolute URL
+            const absoluteHref = new URL(href, window.location.href).href;
             blogLinks.push({
               id: `link-${index}`,
-              href: href,
+              href: absoluteHref,
               text: text,
               confidence: confidence,
               isInternal: isInternalLink(href),
@@ -209,7 +211,6 @@
       };
     }
   }
-  }
 
   // Extract metadata for all blog links
   async function extractAllBlogLinkMetadata() {
@@ -263,20 +264,6 @@
       console.error('Blog Link Analyzer: Critical error in extractAllBlogLinkMetadata:', error);
       return [];
     }
-  }
-      } else {
-        // For external links, use the link text as title
-        return {
-          ...link,
-          title: link.text,
-          author: null,
-          extracted: false
-        };
-      }
-    });
-
-    const results = await Promise.all(metadataPromises);
-    return results.filter(link => link.title); // Filter out links without titles
   }
 
   // Initialize link extraction
