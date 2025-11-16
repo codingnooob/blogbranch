@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Link Analyzer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="header-content">
+        <h2 class="extension-title">
+          <span class="icon">📝</span>
+          Blog Links
+        </h2>
+        <div class="stats" id="stats">
+          <span class="link-count" id="link-count">0</span>
+          <span class="link-label">posts found</span>
+        </div>
+      </div>
+      <div class="current-page" id="current-page">
+        <span class="page-indicator">Analyzing...</span>
+      </div>
+    </header>
+
+    <main class="popup-content">
+      <!-- Search/Filter Section -->
+      <section class="search-section" id="search-section">
+        <div class="search-container">
+          <input 
+            type="text" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Filter posts by title or author..."
+            autocomplete="off"
+          >
+          <button class="search-clear" id="search-clear" title="Clear search">✕</button>
+        </div>
+        <div class="filter-options">
+          <label class="filter-option">
+            <input type="checkbox" id="show-internal-only" checked>
+            <span>Internal only</span>
+          </label>
+          <label class="filter-option">
+            <input type="checkbox" id="show-extracted-only">
+            <span>With metadata</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <section class="loading-section" id="loading-section">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Analyzing page for blog posts...</p>
+      </section>
+
+      <!-- No Results State -->
+      <section class="no-results-section" id="no-results-section" style="display: none;">
+        <div class="no-results-icon">🔍</div>
+        <h3>No Blog Posts Found</h3>
+        <p id="no-results-message">This page doesn't appear to be a blog post or doesn't contain links to other blog posts.</p>
+        <button class="retry-button" id="retry-button">Retry Analysis</button>
+      </section>
+
+      <!-- Blog Links List -->
+      <section class="links-section" id="links-section" style="display: none;">
+        <div class="links-header">
+          <span class="links-count" id="filtered-count">0</span>
+          <span class="links-label">filtered posts</span>
+        </div>
+        <div class="links-container" id="blog-links">
+          <!-- Blog links will be dynamically inserted here -->
+        </div>
+      </section>
+
+      <!-- Error State -->
+      <section class="error-section" id="error-section" style="display: none;">
+        <div class="error-icon">⚠️</div>
+        <h3>Analysis Error</h3>
+        <p id="error-message">An error occurred while analyzing the page.</p>
+        <button class="retry-button" id="error-retry-button">Try Again</button>
+      </section>
+    </main>
+
+    <footer class="popup-footer">
+      <div class="footer-actions">
+        <button class="action-button" id="refresh-button" title="Refresh analysis">
+          <span class="icon">🔄</span>
+          Refresh
+        </button>
+        <button class="action-button" id="settings-button" title="Settings">
+          <span class="icon">⚙️</span>
+        </button>
+      </div>
+      <div class="extension-info">
+        <span class="version">v1.0.0</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Template for blog link items -->
+  <template id="blog-link-template">
+    <div class="blog-link-item" data-confidence="0">
+      <div class="link-header">
+        <div class="link-info">
+          <h4 class="link-title"></h4>
+          <p class="link-author"></p>
+          <div class="link-meta">
+            <span class="link-confidence"></span>
+            <span class="link-type"></span>
+          </div>
+        </div>
+        <div class="link-actions">
+          <button class="expand-button" title="Show nested links">
+            <span class="expand-icon">▶</span>
+          </button>
+          <button class="open-button" title="Open in new tab">
+            <span class="open-icon">🔗</span>
+          </button>
+        </div>
+      </div>
+      <div class="nested-links" style="display: none;">
+        <div class="nested-loading">Loading nested links...</div>
+      </div>
+    </div>
+  </template>
+
+  <script src="popup.js"></script>
+</body>
+</html>
