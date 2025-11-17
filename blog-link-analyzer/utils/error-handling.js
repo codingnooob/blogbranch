@@ -127,11 +127,79 @@
   class Validator {
     // Validate URL
     static isValidUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      
       try {
         const urlObj = new URL(url);
         return ['http:', 'https:'].includes(urlObj.protocol);
       } catch {
         return false;
+      }
+    }
+
+    // Validate API key
+    static isValidApiKey(key) {
+      if (!key || typeof key !== 'string') return false;
+      
+      // Basic key format validation
+      const keyPatterns = {
+        openai: /^sk-[A-Za-z0-9]{48}$/,
+        anthropic: /^sk-ant-api03-[A-Za-z0-9_-]{95}$/,
+        custom: /^[A-Za-z0-9_-]{16,}$/
+      };
+      
+      // Check against known patterns or allow longer custom keys
+      return Object.values(keyPatterns).some(pattern => pattern.test(key)) || 
+             (key.length >= 16 && /^[A-Za-z0-9_-]+$/.test(key));
+    }
+
+    // Validate content length
+    static isValidContentLength(content, maxLength = 100000) {
+      if (!content || typeof content !== 'string') return false;
+      return content.length > 0 && content.length <= maxLength;
+    }
+
+    // Validate AI configuration
+    static isValidAiConfig(config) {
+      if (!config || typeof config !== 'object') return false;
+      
+      const requiredFields = ['provider'];
+      if (!requiredFields.every(field => config[field])) return false;
+      
+      // Provider-specific validation
+      switch (config.provider) {
+        case 'openai':
+        case 'anthropic':
+          return this.isValidApiKey(config.apiKey);
+        case 'ollama':
+          return config.ollamaUrl && this.isValidUrl(config.ollamaUrl);
+        case 'custom':
+          return this.isValidApiKey(config.apiKey) && 
+                 config.customUrl && 
+                 this.isValidUrl(config.customUrl);
+        default:
+          return false;
+      }
+    }
+
+    // Validate API response
+    static isValidApiResponse(response, provider) {
+      if (!response || typeof response !== 'object') return false;
+      
+      switch (provider) {
+        case 'openai':
+          return response.choices && Array.isArray(response.choices) && 
+                 response.choices.length > 0 && 
+                 response.choices[0].message && 
+                 response.choices[0].message.content;
+        case 'anthropic':
+          return response.content && Array.isArray(response.content) && 
+                 response.content.length > 0 && 
+                 response.content[0].text;
+        case 'ollama':
+          return response.response && typeof response.response === 'string';
+        default:
+          return false;
       }
     }
 
@@ -186,9 +254,24 @@
     }
 
     // Sanitize text
-    static sanitizeText(text) {
+    static sanitizeText(text, maxLength = 10000) {
       if (typeof text !== 'string') return '';
-      return text.trim().substring(0, 500); // Limit length
+      
+      // Remove HTML tags
+      let sanitized = text.replace(/<[^>]*>/g, '');
+      
+      // Remove script tags and their content
+      sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      
+      // Normalize whitespace
+      sanitized = sanitized.replace(/\s+/g, ' ').trim();
+      
+      // Limit length and add ellipsis if truncated
+      if (sanitized.length > maxLength) {
+        sanitized = sanitized.substring(0, maxLength - 3) + '...';
+      }
+      
+      return sanitized;
     }
 
     // Sanitize URL
@@ -200,6 +283,27 @@
       } catch {
         return '';
       }
+    }
+
+    // Sanitize HTML content
+    static sanitizeHtml(html) {
+      if (typeof html !== 'string') return '';
+      
+      // Create a temporary div to parse HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      
+      // Get text content only
+      return temp.textContent || temp.innerText || '';
+    }
+
+    // Escape HTML to prevent XSS
+    static escapeHtml(text) {
+      if (typeof text !== 'string') return '';
+      
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
   }
 

@@ -1,0 +1,131 @@
+{
+  "name": "blog-link-analyzer",
+  "version": "1.0.0",
+  "description": "Detects blog posts and extracts linked blog content with titles and authors",
+  "main": "background/service-worker.js",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "build:dev": "webpack --mode=development",
+    "watch": "webpack --mode=development --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint . --ext .js,.ts",
+    "lint:fix": "eslint . --ext .js,.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "package:chrome": "npm run build && node scripts/package-chrome.js",
+    "package:firefox": "npm run build && node scripts/package-firefox.js",
+    "package:all": "npm run package:chrome && npm run package:firefox",
+    "icons": "node scripts/generate-icons.js",
+    "clean": "rimraf dist/ *.zip",
+    "dev": "npm run watch",
+    "validate": "npm run lint && npm run typecheck && npm run test"
+  },
+  "keywords": [
+    "blog",
+    "extension",
+    "chrome",
+    "firefox",
+    "ai",
+    "summarization",
+    "content-analysis"
+  ],
+  "author": "Blog Link Analyzer Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.0.254",
+    "@types/firefox-webext-browser": "^120.0.0",
+    "@types/jest": "^29.5.8",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "archiver": "^6.0.1",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.8.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "html-webpack-plugin": "^5.5.3",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "^3.1.0",
+    "puppeteer": "^21.5.2",
+    "rimraf": "^5.0.5",
+    "sharp": "^0.33.0",
+    "style-loader": "^3.3.3",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "babel-loader": "^10.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/blog-link-analyzer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/blog-link-analyzer/issues"
+  },
+  "homepage": "https://github.com/your-repo/blog-link-analyzer#readme",
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js",
+      "<rootDir>/tests/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "background/**/*.js",
+      "content/**/*.js",
+      "popup/**/*.js",
+      "utils/**/*.js",
+      "!**/*.test.js",
+      "!**/*.backup.js"
+    ]
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "es2021": true,
+      "webextensions": true
+    },
+    "extends": [
+      "eslint:recommended",
+      "@typescript-eslint/recommended",
+      "prettier"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "plugins": [
+      "@typescript-eslint",
+      "prettier"
+    ],
+    "rules": {
+      "prettier/prettier": "error",
+      "no-unused-vars": "warn",
+      "no-console": "warn"
+    },
+    "globals": {
+      "chrome": "readonly",
+      "browser": "readonly"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 80,
+    "tabWidth": 2
+  }
+}
