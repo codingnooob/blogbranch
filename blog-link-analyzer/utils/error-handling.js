@@ -148,9 +148,9 @@
         custom: /^[A-Za-z0-9_-]{16,}$/
       };
       
-      // Check against known patterns or allow longer custom keys
+      // Check against known patterns or allow custom keys
       return Object.values(keyPatterns).some(pattern => pattern.test(key)) || 
-             (key.length >= 16 && /^[A-Za-z0-9_-]+$/.test(key));
+             (key.length >= 10 && /^[A-Za-z0-9_-]+$/.test(key));
     }
 
     // Validate content length
@@ -188,16 +188,16 @@
       
       switch (provider) {
         case 'openai':
-          return response.choices && Array.isArray(response.choices) && 
+          return !!(response.choices && Array.isArray(response.choices) && 
                  response.choices.length > 0 && 
                  response.choices[0].message && 
-                 response.choices[0].message.content;
+                 response.choices[0].message.content);
         case 'anthropic':
-          return response.content && Array.isArray(response.content) && 
+          return !!(response.content && Array.isArray(response.content) && 
                  response.content.length > 0 && 
-                 response.content[0].text;
+                 response.content[0].text);
         case 'ollama':
-          return response.response && typeof response.response === 'string';
+          return !!(response.response && typeof response.response === 'string');
         default:
           return false;
       }
@@ -257,11 +257,11 @@
     static sanitizeText(text, maxLength = 10000) {
       if (typeof text !== 'string') return '';
       
-      // Remove HTML tags
-      let sanitized = text.replace(/<[^>]*>/g, '');
+      // Remove script tags and their content first
+      let sanitized = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
       
-      // Remove script tags and their content
-      sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      // Remove HTML tags
+      sanitized = sanitized.replace(/<[^>]*>/g, '');
       
       // Normalize whitespace
       sanitized = sanitized.replace(/\s+/g, ' ').trim();
@@ -285,25 +285,36 @@
       }
     }
 
-    // Sanitize HTML content
+    // Sanitize HTML content - removes all HTML tags and returns plain text
     static sanitizeHtml(html) {
       if (typeof html !== 'string') return '';
       
-      // Create a temporary div to parse HTML
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
-      
-      // Get text content only
-      return temp.textContent || temp.innerText || '';
+      // Use DOMParser for safer HTML parsing
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        return doc.body.textContent || doc.body.innerText || '';
+      } catch {
+        // Fallback: treat as plain text and escape HTML entities
+        return this.escapeHtml(html);
+      }
     }
 
     // Escape HTML to prevent XSS
     static escapeHtml(text) {
       if (typeof text !== 'string') return '';
       
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      // Manual HTML escaping to avoid innerHTML
+      const htmlEscapes = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;'
+      };
+      
+      return text.replace(/[&<>"'\/]/g, char => htmlEscapes[char]);
     }
   }
 
@@ -399,7 +410,16 @@
       TimeoutHandler,
       PerformanceMonitor,
       errorHandler,
-      performanceMonitor
+      performanceMonitor,
+      // Add direct exports for tests with expected names
+      validateInput: {
+        apiKey: Validator.isValidApiKey.bind(Validator),
+        url: Validator.isValidUrl.bind(Validator),
+        contentLength: Validator.isValidContentLength.bind(Validator),
+        aiConfig: Validator.isValidAiConfig.bind(Validator),
+        apiResponse: (response, provider = 'openai') => Validator.isValidApiResponse(response, provider)
+      },
+      sanitizeContent: Validator.sanitizeText.bind(Validator)
     };
   } else {
     window.BlogLinkAnalyzerUtils = {

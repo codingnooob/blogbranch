@@ -2,11 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const packageJson = require('../package.json');
+const { execSync } = require('child_process');
 
 async function createPackage() {
   const version = packageJson.version;
   const outputFileName = `blog-link-analyzer-chrome-v${version}.zip`;
   const outputPath = path.join(__dirname, '..', outputFileName);
+
+  // Build Chrome version (Manifest V3)
+  console.log('Building Chrome version...');
+  execSync('npm run build', { stdio: 'inherit' });
 
   // Create a file to stream archive data to
   const output = fs.createWriteStream(outputPath);
@@ -37,21 +42,13 @@ async function createPackage() {
 
   // Append files to the archive
   const filesToInclude = [
-    'manifest.json',
-    'dist/**/*',
-    'icons/**/*',
-    'popup/**/*',
-    'content/**/*',
-    'utils/**/*',
-    'PRIVACY.md',
-    'LICENSE',
-    'README.md'
+    'dist/**/*'
   ];
 
   filesToInclude.forEach(pattern => {
     archive.glob(pattern, {
       cwd: path.join(__dirname, '..'),
-      ignore: ['**/node_modules/**', '**/scripts/**', '**/tests/**', '**/*.backup.js', 'dist/manifest.json']
+      ignore: ['**/node_modules/**', '**/scripts/**', '**/tests/**', '**/*.backup.js']
     });
   });
 

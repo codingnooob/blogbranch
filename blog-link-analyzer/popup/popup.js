@@ -711,10 +711,15 @@
     const renderStart = performance.now();
     
     // Clear existing content
-    elements.blogLinks.innerHTML = '';
+    while (elements.blogLinks.firstChild) {
+      elements.blogLinks.removeChild(elements.blogLinks.firstChild);
+    }
 
     if (filteredLinks.length === 0) {
-      elements.blogLinks.innerHTML = '<div class="no-filtered-results">No links match current filters.</div>';
+      const noResultsDiv = document.createElement('div');
+      noResultsDiv.className = 'no-filtered-results';
+      noResultsDiv.textContent = 'No links match current filters.';
+      elements.blogLinks.appendChild(noResultsDiv);
       return;
     }
 
@@ -797,7 +802,8 @@
       // Yield to main thread every 10 items to prevent blocking
       if (index % 10 === 0) {
         elements.blogLinks.appendChild(fragment);
-        fragment.innerHTML = '';
+        // Create new fragment instead of clearing innerHTML
+        fragment.childNodes.length = 0;
       }
     });
 
@@ -1010,7 +1016,11 @@
     try {
       // Disable button and show loading
       button.disabled = true;
-      button.innerHTML = '<span class="summarize-icon">⏳</span>';
+      button.textContent = '';
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'summarize-icon';
+      iconSpan.textContent = '⏳';
+      button.appendChild(iconSpan);
       
       // Check for cached summary first
       if (aiSettings.cacheSummaries) {
@@ -1124,7 +1134,11 @@
     } finally {
       // Restore button
       button.disabled = false;
-      button.innerHTML = '<span class="summarize-icon">🤖</span>';
+      button.textContent = '';
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'summarize-icon';
+      iconSpan.textContent = '🤖';
+      button.appendChild(iconSpan);
     }
   }
 
@@ -1139,7 +1153,14 @@
       const button = document.getElementById('summarize-current-page');
       if (button) {
         button.disabled = true;
-        button.innerHTML = '<span class="icon">⏳</span><span>Generating...</span>';
+        button.textContent = '';
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'icon';
+        iconSpan.textContent = '⏳';
+        const textSpan = document.createElement('span');
+        textSpan.textContent = 'Generating...';
+        button.appendChild(iconSpan);
+        button.appendChild(textSpan);
       }
 
       // Get current tab content
@@ -1248,7 +1269,14 @@
       const button = document.getElementById('summarize-current-page');
       if (button) {
         button.disabled = false;
-        button.innerHTML = '<span class="icon">🤖</span><span>Summarize Current Page</span>';
+        button.textContent = '';
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'icon';
+        iconSpan.textContent = '🤖';
+        const textSpan = document.createElement('span');
+        textSpan.textContent = 'Summarize Current Page';
+        button.appendChild(iconSpan);
+        button.appendChild(textSpan);
       }
     }
   }
@@ -1299,12 +1327,19 @@
     if (titleElement) titleElement.textContent = link.title || 'Untitled';
     if (metaElement) metaElement.textContent = 'Generating summary...';
     if (textElement) {
-      textElement.innerHTML = `
-        <div class="summary-loading">
-          <div class="loading-spinner"></div>
-          <p>Generating summary...</p>
-        </div>
-      `;
+      textElement.textContent = '';
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'summary-loading';
+      
+      const spinnerDiv = document.createElement('div');
+      spinnerDiv.className = 'loading-spinner';
+      
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'Generating summary...';
+      
+      loadingDiv.appendChild(spinnerDiv);
+      loadingDiv.appendChild(paragraph);
+      textElement.appendChild(loadingDiv);
     }
 
     if (modal) modal.style.display = 'flex';
@@ -1320,14 +1355,32 @@
     if (titleElement) titleElement.textContent = link.title || 'Untitled';
     if (metaElement) metaElement.textContent = 'Error generating summary';
     if (textElement) {
-      textElement.innerHTML = `
-        <div class="summary-error">
-          <div class="error-icon">⚠️</div>
-          <p><strong>Failed to generate summary</strong></p>
-          <p>${error}</p>
-          <button class="button button-secondary" onclick="hideSummaryModal()">Close</button>
-        </div>
-      `;
+      textElement.textContent = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'summary-error';
+      
+      const iconDiv = document.createElement('div');
+      iconDiv.className = 'error-icon';
+      iconDiv.textContent = '⚠️';
+      
+      const titleParagraph = document.createElement('p');
+      const titleStrong = document.createElement('strong');
+      titleStrong.textContent = 'Failed to generate summary';
+      titleParagraph.appendChild(titleStrong);
+      
+      const errorParagraph = document.createElement('p');
+      errorParagraph.textContent = error;
+      
+      const closeButton = document.createElement('button');
+      closeButton.className = 'button button-secondary';
+      closeButton.textContent = 'Close';
+      closeButton.addEventListener('click', hideSummaryModal);
+      
+      errorDiv.appendChild(iconDiv);
+      errorDiv.appendChild(titleParagraph);
+      errorDiv.appendChild(errorParagraph);
+      errorDiv.appendChild(closeButton);
+      textElement.appendChild(errorDiv);
     }
 
     if (modal) modal.style.display = 'flex';
@@ -1379,7 +1432,7 @@
       const regenerateButton = document.getElementById('regenerate-summary');
       if (regenerateButton) {
         regenerateButton.disabled = true;
-        regenerateButton.innerHTML = '🔄 Regenerating...';
+        regenerateButton.textContent = '🔄 Regenerating...';
       }
 
       // Show loading state in modal
@@ -1547,7 +1600,7 @@
       const regenerateButton = document.getElementById('regenerate-summary');
       if (regenerateButton) {
         regenerateButton.disabled = false;
-        regenerateButton.innerHTML = '🔄 Regenerate';
+        regenerateButton.textContent = '🔄 Regenerate';
       }
     }
   }
@@ -1667,7 +1720,9 @@
 
     try {
       const models = await aiService.getModels(provider, aiSettings.endpoint);
-      modelSelect.innerHTML = '';
+      while (modelSelect.firstChild) {
+        modelSelect.removeChild(modelSelect.firstChild);
+      }
       
       models.forEach(model => {
         const option = document.createElement('option');
@@ -1684,7 +1739,13 @@
 
     } catch (error) {
       console.error('Blog Link Analyzer: Failed to update model options:', error);
-      modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+      while (modelSelect.firstChild) {
+        modelSelect.removeChild(modelSelect.firstChild);
+      }
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Failed to load models';
+      modelSelect.appendChild(option);
     }
   }
 
@@ -1983,7 +2044,13 @@
       }
 
       // Show loading
-      container.innerHTML = '<div class="nested-loading">Loading nested links...</div>';
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'nested-loading';
+      loadingDiv.textContent = 'Loading nested links...';
+      container.appendChild(loadingDiv);
 
       // Use queued request system
       const response = await queueNestedLinkRequest(linkId, link.href);
@@ -2000,22 +2067,42 @@
         
         renderNestedLinks(nestedLinksWithDepth, container, link);
       } else {
-        container.innerHTML = '<div class="nested-loading">No nested links found.</div>';
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        const noLinksDiv = document.createElement('div');
+        noLinksDiv.className = 'nested-loading';
+        noLinksDiv.textContent = 'No nested links found.';
+        container.appendChild(noLinksDiv);
       }
     } catch (error) {
       console.error('Blog Link Analyzer: Error loading nested links:', error);
-      container.innerHTML = '<div class="nested-loading">Error loading nested links.</div>';
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'nested-loading';
+      errorDiv.textContent = 'Error loading nested links.';
+      container.appendChild(errorDiv);
     }
   }
 
   // Render nested links
   function renderNestedLinks(nestedLinks, container, parentLink = null) {
     if (nestedLinks.length === 0) {
-      container.innerHTML = '<div class="nested-loading">No nested links found.</div>';
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      const noLinksDiv = document.createElement('div');
+      noLinksDiv.className = 'nested-loading';
+      noLinksDiv.textContent = 'No nested links found.';
+      container.appendChild(noLinksDiv);
       return;
     }
 
-    container.innerHTML = '';
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
     container.className = `nested-links level-${currentDepth + 1}`;
     
     nestedLinks.forEach((nestedLink, index) => {
@@ -2152,27 +2239,45 @@
       }
     } else {
       // Fallback: create error display manually
-      document.body.innerHTML = `
-        <div style="padding: 20px; text-align: center; color: #d32f2f;">
-          <h3>Extension Error</h3>
-          <p>${message}</p>
-          <button onclick="location.reload()" style="padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Reload Extension
-          </button>
-        </div>
-      `;
+      while (document.body.firstChild) {
+        document.body.removeChild(document.body.firstChild);
+      }
+      
+      const errorContainer = document.createElement('div');
+      errorContainer.style.cssText = 'padding: 20px; text-align: center; color: #d32f2f;';
+      
+      const heading = document.createElement('h3');
+      heading.textContent = 'Extension Error';
+      
+      const messageParagraph = document.createElement('p');
+      messageParagraph.textContent = message;
+      
+      const reloadButton = document.createElement('button');
+      reloadButton.textContent = 'Reload Extension';
+      reloadButton.style.cssText = 'padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;';
+      reloadButton.addEventListener('click', () => location.reload());
+      
+      errorContainer.appendChild(heading);
+      errorContainer.appendChild(messageParagraph);
+      errorContainer.appendChild(reloadButton);
+      document.body.appendChild(errorContainer);
     }
     
     // Add debug information if available
     if (errorInfo) {
       const debugInfo = document.createElement('div');
       debugInfo.className = 'error-debug-info';
-      debugInfo.innerHTML = `
-        <details>
-          <summary>Debug Information</summary>
-          <pre>${JSON.stringify(errorInfo, null, 2)}</pre>
-        </details>
-      `;
+      const details = document.createElement('details');
+      
+      const summary = document.createElement('summary');
+      summary.textContent = 'Debug Information';
+      
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(errorInfo, null, 2);
+      
+      details.appendChild(summary);
+      details.appendChild(pre);
+      debugInfo.appendChild(details);
       errorMessage.appendChild(debugInfo);
     }
     
@@ -2194,32 +2299,68 @@
     strategies.className = 'retry-strategies';
     
     if (errorInfo && errorInfo.chromeAvailable === false) {
-      strategies.innerHTML = `
-        <p class="error-suggestion">Chrome APIs not available. Try:</p>
-        <ul>
-          <li>Restarting your browser</li>
-          <li>Reinstalling the extension</li>
-          <li>Checking if extensions are enabled</li>
-        </ul>
-      `;
+      const suggestionParagraph = document.createElement('p');
+      suggestionParagraph.className = 'error-suggestion';
+      suggestionParagraph.textContent = 'Chrome APIs not available. Try:';
+      
+      const list = document.createElement('ul');
+      
+      const suggestions = [
+        'Restarting your browser',
+        'Reinstalling the extension',
+        'Checking if extensions are enabled'
+      ];
+      
+      suggestions.forEach(suggestion => {
+        const li = document.createElement('li');
+        li.textContent = suggestion;
+        list.appendChild(li);
+      });
+      
+      strategies.appendChild(suggestionParagraph);
+      strategies.appendChild(list);
     } else if (errorInfo && errorInfo.type === 'InitializationError') {
-      strategies.innerHTML = `
-        <p class="error-suggestion">Initialization failed. Try:</p>
-        <ul>
-          <li>Refreshing the page</li>
-          <li>Restarting the browser</li>
-          <li>Checking browser console for details</li>
-        </ul>
-      `;
+      const suggestionParagraph = document.createElement('p');
+      suggestionParagraph.className = 'error-suggestion';
+      suggestionParagraph.textContent = 'Initialization failed. Try:';
+      
+      const list = document.createElement('ul');
+      
+      const suggestions = [
+        'Refreshing the page',
+        'Restarting the browser',
+        'Checking browser console for details'
+      ];
+      
+      suggestions.forEach(suggestion => {
+        const li = document.createElement('li');
+        li.textContent = suggestion;
+        list.appendChild(li);
+      });
+      
+      strategies.appendChild(suggestionParagraph);
+      strategies.appendChild(list);
     } else {
-      strategies.innerHTML = `
-        <p class="error-suggestion">Something went wrong. Try:</p>
-        <ul>
-          <li>Refreshing the current page</li>
-          <li>Checking if the page is a blog post</li>
-          <li>Trying again in a few moments</li>
-        </ul>
-      `;
+      const suggestionParagraph = document.createElement('p');
+      suggestionParagraph.className = 'error-suggestion';
+      suggestionParagraph.textContent = 'Something went wrong. Try:';
+      
+      const list = document.createElement('ul');
+      
+      const suggestions = [
+        'Refreshing current page',
+        'Checking if page is a blog post',
+        'Trying again in a few moments'
+      ];
+      
+      suggestions.forEach(suggestion => {
+        const li = document.createElement('li');
+        li.textContent = suggestion;
+        list.appendChild(li);
+      });
+      
+      strategies.appendChild(suggestionParagraph);
+      strategies.appendChild(list);
       
       errorSection.appendChild(strategies);
     }
@@ -2327,7 +2468,9 @@
     }
     
     // Render breadcrumb
-    elements.breadcrumbPath.innerHTML = '';
+    while (elements.breadcrumbPath.firstChild) {
+      elements.breadcrumbPath.removeChild(elements.breadcrumbPath.firstChild);
+    }
     
     pathItems.forEach((item, index) => {
       const itemElement = document.createElement('div');
@@ -2769,13 +2912,27 @@
       } catch (fallbackError) {
         console.error('Blog Link Analyzer: Fallback also failed:', fallbackError);
         // Last resort - show basic error
-        document.body.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: red;">
-            <h3>Extension Error</h3>
-            <p>Failed to initialize: ${fallbackError.message}</p>
-            <button onclick="location.reload()">Reload</button>
-          </div>
-        `;
+        while (document.body.firstChild) {
+          document.body.removeChild(document.body.firstChild);
+        }
+        
+        const errorContainer = document.createElement('div');
+        errorContainer.style.cssText = 'padding: 20px; text-align: center; color: red;';
+        
+        const heading = document.createElement('h3');
+        heading.textContent = 'Extension Error';
+        
+        const messageParagraph = document.createElement('p');
+        messageParagraph.textContent = `Failed to initialize: ${fallbackError.message}`;
+        
+        const reloadButton = document.createElement('button');
+        reloadButton.textContent = 'Reload';
+        reloadButton.addEventListener('click', () => location.reload());
+        
+        errorContainer.appendChild(heading);
+        errorContainer.appendChild(messageParagraph);
+        errorContainer.appendChild(reloadButton);
+        document.body.appendChild(errorContainer);
       }
     });
   }

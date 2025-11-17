@@ -146,7 +146,7 @@ describe('AI Service', () => {
 
     expect(chrome.storage.local.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        'summary-cache-123': expect.objectContaining({
+        [`summary-cache-${content.substring(0, 123)}`]: expect.objectContaining({
           summary: 'Cached summary',
           timestamp: expect.any(Number)
         })
@@ -155,8 +155,9 @@ describe('AI Service', () => {
   });
 
   test('should return cached summary when available', async () => {
+    const content = 'Test content';
     const cachedData = {
-      'summary-cache-123': {
+      [`summary-cache-${content.substring(0, 123)}`]: {
         summary: 'Cached result',
         timestamp: Date.now() - 1000 // 1 second ago
       }
@@ -169,7 +170,6 @@ describe('AI Service', () => {
       ...cachedData
     });
 
-    const content = 'Test content';
     const summary = await generateSummary(content);
 
     expect(summary).toBe('Cached result');

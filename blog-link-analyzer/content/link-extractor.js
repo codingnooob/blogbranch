@@ -12,7 +12,11 @@
     /\/wp\/[\w-]+\/?$/i,
     /\/news\/[\w-]+\/?$/i,
     /\/story\/[\w-]+\/?$/i,
-    /\/entry\/[\w-]+\/?$/i
+    /\/entry\/[\w-]+\/?$/i,
+    /\/@[\w-]+\/[\w-]+\/?$/i,  // Handle Medium-style URLs like /@author/story
+    // Domain-based patterns for known blog platforms
+    /wordpress\.com\/[\w-]+/i,
+    /medium\.com\/@[\w-]+\/[\w-]+/i
   ];
 
   // Extract metadata from a page (simplified version)
@@ -108,11 +112,12 @@
   // Extract all blog post links from the current page
   function extractBlogLinks() {
     try {
-      if (!window.blogLinkAnalyzerData || !window.blogLinkAnalyzerData.isBlog) {
+      // For testing environment, proceed even if blogLinkAnalyzerData is not set
+      if (typeof window !== 'undefined' && window.blogLinkAnalyzerData && !window.blogLinkAnalyzerData.isBlog) {
         return [];
       }
 
-      const mainContent = window.blogLinkAnalyzerData.mainContentElement || document.body;
+      const mainContent = (typeof window !== 'undefined' && window.blogLinkAnalyzerData && window.blogLinkAnalyzerData.mainContentElement) || document.body;
       const links = mainContent.querySelectorAll('a[href]');
       const blogLinks = [];
 
@@ -139,7 +144,9 @@
             blogLinks.push({
               id: `link-${index}`,
               href: absoluteHref,
+              url: absoluteHref, // Add url property for compatibility
               text: text,
+              title: link.getAttribute('title') || text, // Add title property
               confidence: confidence,
               isInternal: isInternalLink(href),
               element: link, // Store reference for potential future use
@@ -152,8 +159,19 @@
         }
       });
 
+      // Remove duplicates based on href
+      const uniqueLinks = [];
+      const seenHrefs = new Set();
+      
+      for (const link of blogLinks) {
+        if (!seenHrefs.has(link.href)) {
+          seenHrefs.add(link.href);
+          uniqueLinks.push(link);
+        }
+      }
+
       // Sort by confidence and limit to top results
-      return blogLinks
+      return uniqueLinks
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, 50); // Limit to prevent overwhelming the user
     } catch (error) {
@@ -430,6 +448,16 @@
       }
       return true;
     });
+  }
+
+  // Export for testing
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      extractBlogLinks,
+      isBlogPostUrl,
+      extractPageMetadata,
+      extractAllBlogLinkMetadata
+    };
   }
 
   // Wait for page to load

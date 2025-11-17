@@ -327,9 +327,72 @@ Summary:`;
   }
 }
 
+// Create a default instance for convenience functions
+const aiService = new AIService();
+
+// Convenience function for backward compatibility
+async function generateSummary(content, options = {}) {
+  // Check cache first if available
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      const cacheKey = `summary-cache-${content.substring(0, 123)}`;
+      const cached = await chrome.storage.local.get(cacheKey);
+      if (cached[cacheKey]) {
+        return cached[cacheKey].summary;
+      }
+    } catch (error) {
+      console.error('Error checking cache:', error);
+    }
+  }
+  
+  // Get configuration from chrome storage if available
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      const result = await chrome.storage.local.get(['aiProvider', 'openaiApiKey', 'anthropicApiKey', 'model', 'ollamaUrl', 'customUrl', 'customApiKey']);
+      let endpoint = result.ollamaUrl || result.customUrl;
+      // For Ollama, append /api/generate if not already present
+      if (result.aiProvider === 'ollama' && endpoint && !endpoint.endsWith('/api/generate')) {
+        endpoint = endpoint.endsWith('/') ? endpoint + 'api/generate' : endpoint + '/api/generate';
+      }
+      
+      const config = {
+        provider: result.aiProvider || 'openai',
+        apiKey: result.openaiApiKey || result.anthropicApiKey || result.customApiKey,
+        model: result.model,
+        endpoint: endpoint
+      };
+      const summary = await aiService.summarize({ content, ...config, ...options });
+      
+      // Cache the result
+      try {
+        const cacheKey = `summary-cache-${content.substring(0, 123)}`;
+        await chrome.storage.local.set({
+          [cacheKey]: {
+            summary: summary,
+            timestamp: Date.now()
+          }
+        });
+      } catch (error) {
+        console.error('Error caching result:', error);
+      }
+      
+      return summary;
+    } catch (error) {
+      console.error('Error getting AI config:', error);
+    }
+  }
+  
+  // Fallback to provided options or defaults
+  return aiService.summarize({ content, ...options });
+}
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = AIService;
+  module.exports = {
+    AIService,
+    generateSummary
+  };
 } else if (typeof window !== 'undefined') {
   window.AIService = AIService;
+  window.generateSummary = generateSummary;
 }

@@ -2,7 +2,9 @@ const { detectBlogPost } = require('../content/blog-detector.js');
 
 describe('Blog Detection', () => {
   beforeEach(() => {
-    document.body.innerHTML = '';
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
     global.chrome = {
       runtime: { sendMessage: jest.fn() }
     };
@@ -27,6 +29,11 @@ describe('Blog Detection', () => {
       document.head.appendChild(meta);
     });
 
+    // Add some blog content to increase confidence
+    const article = document.createElement('article');
+    article.innerHTML = 'This is a long blog post with substantial content that should pass the 200 character threshold for blog content detection. It contains multiple sentences and provides enough text to be considered substantial blog content.';
+    document.body.appendChild(article);
+
     const result = detectBlogPost();
     
     expect(result.isBlog).toBe(true);
@@ -40,6 +47,11 @@ describe('Blog Detection', () => {
       writable: true
     });
 
+    // Add some blog content to increase confidence
+    const article = document.createElement('article');
+    article.innerHTML = 'This is a Medium article with substantial content that should pass the 200 character threshold for blog content detection. It contains multiple sentences and provides enough text to be considered substantial blog content for proper detection.';
+    document.body.appendChild(article);
+
     const result = detectBlogPost();
     
     expect(result.isBlog).toBe(true);
@@ -51,6 +63,11 @@ describe('Blog Detection', () => {
       value: { href: 'https://newsletter.substack.com/p/article-title' },
       writable: true
     });
+
+    // Add some blog content to increase confidence
+    const article = document.createElement('article');
+    article.innerHTML = 'This is a Substack newsletter with substantial content that should pass the 200 character threshold for blog content detection. It contains multiple sentences and provides enough text to be considered substantial blog content for proper detection.';
+    document.body.appendChild(article);
 
     const result = detectBlogPost();
     

@@ -170,8 +170,8 @@ Blog Link Analyzer is a productivity extension that helps users discover and ana
 ## Contact Information
 
 - **Developer:** Blog Link Analyzer Team
-- **Email:** blog-link-analyzer@example.com
-- **GitHub:** https://github.com/your-repo/blog-link-analyzer
+- **Email:** codingnooob3@gmail.com
+- **GitHub:** https://github.com/codingnooob/blogbranch
 - **Support:** GitHub Issues for bug reports and feature requests
 
 ## Additional Notes

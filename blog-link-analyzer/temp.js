@@ -604,12 +604,17 @@
     if (errorInfo) {
       const debugInfo = document.createElement('div');
       debugInfo.className = 'error-debug-info';
-      debugInfo.innerHTML = `
-        <details>
-          <summary>Debug Information</summary>
-          <pre>${JSON.stringify(errorInfo, null, 2)}</pre>
-        </details>
-      `;
+      // Create safe DOM structure for debug info
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = 'Debug Information';
+      details.appendChild(summary);
+      
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(errorInfo, null, 2);
+      details.appendChild(pre);
+      
+      debugInfo.appendChild(details);
       errorMessage.appendChild(debugInfo);
     }
     

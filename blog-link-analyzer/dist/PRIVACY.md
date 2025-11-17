@@ -98,8 +98,8 @@ We may update this Privacy Policy from time to time. We will notify you of any c
 
 If you have questions about this Privacy Policy or our data practices:
 
-- **GitHub Issues:** [https://github.com/your-repo/blog-link-analyzer/issues](https://github.com/your-repo/blog-link-analyzer/issues)
-- **Email:** blog-link-analyzer@example.com
+- **GitHub Issues:** [https://github.com/codingnooob/blogbranch/issues](https://github.com/codingnooob/blogbranch/issues)
+- **Email:** codingnooob3@gmail.com
 
 ## Compliance
 

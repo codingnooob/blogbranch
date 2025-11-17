@@ -79,12 +79,33 @@
     if (hasBlogMeta) confidence += 0.2;
     if (platform) confidence += 0.1;
 
+    // Extract metadata
+    let title = document.title;
+    let author = document.querySelector('meta[name="author"]')?.content || 
+                 document.querySelector('meta[property="article:author"]')?.content;
+    
+    // Check for structured data (JSON-LD)
+    const structuredData = document.querySelector('script[type="application/ld+json"]');
+    if (structuredData) {
+      try {
+        const data = JSON.parse(structuredData.textContent);
+        if (data.headline) title = data.headline;
+        if (data.author && data.author.name) author = data.author.name;
+      } catch (error) {
+        console.warn('Error parsing structured data:', error);
+      }
+    }
+
     return {
       isBlog: confidence >= 0.5,
       confidence: confidence,
       platform: platform,
       url: url,
-      hostname: hostname
+      hostname: hostname,
+      metadata: {
+        title: title,
+        author: author
+      }
     };
   }
 
@@ -112,12 +133,19 @@
     const url = window.location.href;
     const html = document.documentElement.outerHTML;
 
+    // Check hostname first for known platforms
+    if (hostname.includes('medium.com')) return 'medium';
+    if (hostname.includes('substack.com')) return 'substack';
+    if (hostname.includes('wordpress.com')) return 'wordpress';
+    
     for (const [platform, patterns] of Object.entries(PLATFORM_PATTERNS)) {
       if (patterns.url && patterns.url.test(url)) return platform;
       if (patterns.class && patterns.class.test(html)) return platform;
       if (patterns.meta) {
         const generator = document.querySelector('meta[name="generator"]');
         if (generator && patterns.meta.test(generator.content)) return platform;
+      }
+    }
       }
     }
 
@@ -356,6 +384,13 @@
         return true; // Keep message channel open for async response
       }
     });
+  }
+
+  // Export for testing
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      detectBlogPost: isBlogPost
+    };
   }
 
   // Wait for page to load

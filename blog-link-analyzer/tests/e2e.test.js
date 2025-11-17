@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-import path from 'path';
+const path = require('path');
 
 describe('Extension E2E Tests', () => {
   let browser;

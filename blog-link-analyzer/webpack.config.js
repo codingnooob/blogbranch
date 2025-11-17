@@ -4,6 +4,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
+  const isFirefox = env && env.firefox === 'true';
   
   return {
     entry: {
@@ -54,7 +55,7 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           { from: 'icons', to: 'icons' },
-          { from: 'manifest.json', to: 'manifest.json' },
+          { from: isFirefox ? 'manifest-firefox.json' : 'manifest.json', to: 'manifest.json' },
           { from: 'popup/popup.html', to: 'popup/popup.html' },
           { from: 'content/content-styles.css', to: 'content/content-styles.css' },
           { from: 'popup/popup.css', to: 'popup/popup.css' },

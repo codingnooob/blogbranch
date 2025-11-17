@@ -5,6 +5,7 @@
   "main": "background/service-worker.js",
   "scripts": {
     "build": "webpack --mode=production",
+    "build:firefox": "webpack --mode=production --env firefox=true",
     "build:dev": "webpack --mode=development",
     "watch": "webpack --mode=development --watch",
     "test": "jest",
@@ -13,7 +14,7 @@
     "lint:fix": "eslint . --ext .js,.ts --fix",
     "typecheck": "tsc --noEmit",
     "package:chrome": "npm run build && node scripts/package-chrome.js",
-    "package:firefox": "npm run build && node scripts/package-firefox.js",
+    "package:firefox": "npm run build:firefox && node scripts/package-firefox.js",
     "package:all": "npm run package:chrome && npm run package:firefox",
     "icons": "node scripts/generate-icons.js",
     "clean": "rimraf dist/ *.zip",
@@ -67,12 +68,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-repo/blog-link-analyzer.git"
+    "url": "https://github.com/codingnooob/blogbranch.git"
   },
   "bugs": {
-    "url": "https://github.com/your-repo/blog-link-analyzer/issues"
+    "url": "https://github.com/codingnooob/blogbranch/issues"
   },
-  "homepage": "https://github.com/your-repo/blog-link-analyzer#readme",
+  "homepage": "https://github.com/codingnooob/blogbranch#readme",
   "jest": {
     "testEnvironment": "jsdom",
     "setupFilesAfterEnv": [
@@ -89,7 +90,11 @@
       "utils/**/*.js",
       "!**/*.test.js",
       "!**/*.backup.js"
-    ]
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(puppeteer)/)"
+    ],
+    "moduleFileExtensions": ["js", "ts"]
   },
   "eslintConfig": {
     "env": {

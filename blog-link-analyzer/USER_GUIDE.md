@@ -141,10 +141,10 @@
 
 ### Getting Help
 
-- **📖 Documentation**: Check our [full documentation](https://github.com/your-repo/blog-link-analyzer)
-- **🐛 Report Issues**: [GitHub Issues](https://github.com/your-repo/blog-link-analyzer/issues)
-- **💬 Community**: [Discussions](https://github.com/your-repo/blog-link-analyzer/discussions)
-- **📧 Email**: blog-link-analyzer@example.com
+- **📖 Documentation**: Check our [full documentation](https://github.com/codingnooob/blogbranch)
+- **🐛 Report Issues**: [GitHub Issues](https://github.com/codingnooob/blogbranch/issues)
+- **💬 Community**: [Discussions](https://github.com/codingnooob/blogbranch/discussions)
+- **📧 Email**: codingnooob3@gmail.com
 
 ## 🔒 Privacy & Security
 

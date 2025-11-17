@@ -27,7 +27,7 @@ We're here to help you get the most out of Blog Link Analyzer. Here are all the 
 ### Primary Support Channels
 
 #### GitHub Issues (Recommended)
-- **URL**: [https://github.com/your-repo/blog-link-analyzer/issues](https://github.com/your-repo/blog-link-analyzer/issues)
+- **URL**: [https://github.com/codingnooob/blogbranch/issues](https://github.com/codingnooob/blogbranch/issues)
 - **Best for**: Bug reports, feature requests, technical issues
 - **Response time**: Usually within 24-48 hours
 - **What to include**:
@@ -37,7 +37,7 @@ We're here to help you get the most out of Blog Link Analyzer. Here are all the 
   - Screenshots if applicable
 
 #### Email Support
-- **Email**: blog-link-analyzer@example.com
+- **Email**: codingnooob3@gmail.com
 - **Best for**: Privacy concerns, account issues, general questions
 - **Response time**: Within 48-72 hours
 - **What to include**:
@@ -46,7 +46,7 @@ We're here to help you get the most out of Blog Link Analyzer. Here are all the 
   - Any error messages you're seeing
 
 #### Community Discussions
-- **URL**: [https://github.com/your-repo/blog-link-analyzer/discussions](https://github.com/your-repo/blog-link-analyzer/discussions)
+- **URL**: [https://github.com/codingnooob/blogbranch/discussions](https://github.com/codingnooob/blogbranch/discussions)
 - **Best for**: Tips, tricks, user questions, feature ideas
 - **Response time**: Community-driven, usually within hours
 
@@ -120,7 +120,7 @@ If you discover a security vulnerability, please:
 
 For questions about data handling, privacy, or GDPR compliance:
 
-- **Email**: privacy@blog-link-analyzer@example.com
+- **Email**: codingnooob3@gmail.com
 - **Read our**: [Privacy Policy](PRIVACY.md)
 - **Response time**: Within 7 business days
 
