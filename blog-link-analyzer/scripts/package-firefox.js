@@ -37,8 +37,8 @@ async function createPackage() {
 
   // Append files to the archive
   const filesToInclude = [
-    'dist/**/*',
     'manifest.json',
+    'dist/**/*',
     'icons/**/*',
     'popup/**/*',
     'content/**/*',
@@ -51,7 +51,7 @@ async function createPackage() {
   filesToInclude.forEach(pattern => {
     archive.glob(pattern, {
       cwd: path.join(__dirname, '..'),
-      ignore: ['**/node_modules/**', '**/scripts/**', '**/tests/**', '**/*.backup.js']
+      ignore: ['**/node_modules/**', '**/scripts/**', '**/tests/**', '**/*.backup.js', 'dist/manifest.json']
     });
   });
 
