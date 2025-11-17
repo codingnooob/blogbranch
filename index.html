@@ -3,264 +3,350 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - Blog Link Analyzer</title>
-  <meta name="description" content="Privacy Policy for Blog Link Analyzer browser extension">
+  <title>Blog Link Analyzer - Smart Blog Content Discovery</title>
+  <meta name="description" content="Chrome/Firefox extension that detects blog posts and extracts linked blog content with AI-powered summarization">
+  <meta name="keywords" content="blog analyzer, chrome extension, firefox extension, AI summarization, blog discovery">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.6;
-      max-width: 800px;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      color: #333;
-      background-color: #fff;
     }
-    .container {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      padding: 40px;
+
+    header {
+      text-align: center;
+      padding: 60px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: white;
+      font-weight: bold;
+    }
+
     h1 {
-      color: #2c3e50;
-      border-bottom: 2px solid #e9ecef;
-      padding-bottom: 10px;
+      font-size: 3em;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: 1.3em;
+      color: #666;
       margin-bottom: 30px;
     }
-    h2 {
-      color: #495057;
-      margin-top: 30px;
-      border-bottom: 1px solid #e9ecef;
-      padding-bottom: 10px;
+
+    .download-buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
     }
-    h3 {
-      color: #343a40;
-      margin-top: 25px;
-    }
-    p {
-      margin-bottom: 15px;
-    }
-    ul {
-      margin-bottom: 15px;
-      padding-left: 20px;
-    }
-    li {
-      margin-bottom: 8px;
-    }
-    strong {
-      color: #495057;
-    }
-    em {
-      color: #6c757d;
-      font-style: italic;
-    }
-    .highlight {
-      background-color: #f8f9fa;
-      border-left: 4px solid #007bff;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .last-updated {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e9ecef;
-      font-size: 0.9em;
-      color: #6c757d;
-    }
-    a {
-      color: #007bff;
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 50px;
+      font-size: 1.1em;
+      font-weight: 600;
       text-decoration: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
     }
-    a:hover {
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .btn-secondary:hover {
+      background: #667eea;
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 1.4em;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .feature-card p {
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 40px;
+      border-radius: 20px;
+      margin-bottom: 40px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .section h2 {
+      font-size: 2.2em;
+      margin-bottom: 20px;
+      color: #333;
+      text-align: center;
+    }
+
+    .platforms {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .platform {
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      min-width: 120px;
+    }
+
+    .platform-icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer-links a:hover {
       text-decoration: underline;
     }
-    pre {
-      background-color: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 4px;
-      padding: 15px;
-      overflow-x: auto;
+
+    .coming-soon {
+      background: #ffc107;
+      color: #333;
+      padding: 5px 15px;
+      border-radius: 20px;
       font-size: 0.9em;
+      font-weight: 600;
+      margin-left: 10px;
     }
-    @media (max-width: 600px) {
-      body {
-        padding: 10px;
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2em;
       }
-      .container {
-        padding: 20px;
+      
+      .download-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .features {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Privacy Policy for Blog Link Analyzer Extension</h1>
-    
-    <div class="highlight">
-      <strong>Last Updated:</strong> January 16, 2025<br>
-      <strong>Effective Date:</strong> January 16, 2025
-    </div>
+    <header>
+      <div class="logo">🔗</div>
+      <h1>Blog Link Analyzer</h1>
+      <p class="tagline">Smart Blog Content Discovery with AI-Powered Insights</p>
+      
+      <div class="download-buttons">
+        <a href="https://chrome.google.com/webstore" class="btn btn-primary" target="_blank">
+          <span>🌐</span> Download for Chrome
+        </a>
+        <a href="https://addons.mozilla.org" class="btn btn-secondary" target="_blank">
+          <span>🦊</span> Download for Firefox
+        </a>
+      </div>
+      
+      <p><small>Free and open source • No registration required</small></p>
+    </header>
 
-    <h2>Overview</h2>
-    <p>This Privacy Policy explains how the Blog Link Analyzer browser extension ("the Extension") collects, uses, and protects your information when you use our service.</p>
+    <section class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>Smart Detection</h3>
+        <p>Automatically detects blog posts using URL patterns, content analysis, and meta tags. Works with WordPress, Medium, Substack, Ghost, and more.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">📚</div>
+        <h3>Link Extraction</h3>
+        <p>Finds all hyperlinks in blog posts that lead to other blog posts, extracting titles and authors for easy browsing.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>AI Summarization</h3>
+        <p>Generate intelligent summaries of blog posts using OpenAI, Anthropic, Ollama, or custom AI endpoints. Save time and get insights faster.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Lightning Fast</h3>
+        <p>Smart caching and optimized performance ensure the extension works seamlessly without slowing down your browsing experience.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Privacy First</h3>
+        <p>All processing happens locally in your browser. Your data stays private and secure unless you explicitly use AI features.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <h3>Beautiful UI</h3>
+        <p>Interactive dropdown interface with expandable nested links, clean design, and intuitive user experience.</p>
+      </div>
+    </section>
 
-    <h2>Information We Collect</h2>
+    <section class="section">
+      <h2>Supported Platforms</h2>
+      <div class="platforms">
+        <div class="platform">
+          <div class="platform-icon">📝</div>
+          <strong>WordPress</strong>
+        </div>
+        <div class="platform">
+          <div class="platform-icon">📖</div>
+          <strong>Medium</strong>
+        </div>
+        <div class="platform">
+          <div class="platform-icon">📮</div>
+          <strong>Substack</strong>
+        </div>
+        <div class="platform">
+          <div class="platform-icon">👻</div>
+          <strong>Ghost</strong>
+        </div>
+        <div class="platform">
+          <div class="platform-icon">🌐</div>
+          <strong>Custom Blogs</strong>
+        </div>
+      </div>
+    </section>
 
-    <h3>1. Automatically Collected Information</h3>
+    <section class="section">
+      <h2>Installation</h2>
+      <p><strong>Chrome Web Store & Firefox Add-ons:</strong> Coming soon! <span class="coming-soon">🚀</span></p>
+      <br>
+      <p><strong>Manual Installation (Development):</strong></p>
+      <ol style="margin-left: 20px; color: #666;">
+        <li>Download this repository</li>
+        <li>Chrome: Go to <code>chrome://extensions/</code> → Enable "Developer mode" → "Load unpacked"</li>
+        <li>Firefox: Go to <code>about:debugging</code> → "This Firefox" → "Load Temporary Add-on"</li>
+        <li>Select the <code>blog-link-analyzer</code> directory</li>
+      </ol>
+    </section>
 
-    <h4>Blog Content Analysis</h4>
-    <ul>
-      <li>The Extension analyzes web pages you visit to detect blog posts and extract links to other blog posts</li>
-      <li>Page content is processed locally in your browser to identify blog posts and extract metadata (titles, authors)</li>
-      <li>No page content is sent to external servers unless you explicitly use AI features</li>
-    </ul>
-
-    <h4>Extension Usage Data</h4>
-    <ul>
-      <li>Local storage of extension settings and preferences</li>
-      <li>Cached blog post metadata for performance optimization</li>
-      <li>AI configuration settings (if enabled)</li>
-    </ul>
-
-    <h3>2. AI Feature Data (Optional)</h3>
-
-    <p>When you enable AI summarization features:</p>
-    <ul>
-      <li>Blog post content may be sent to AI service providers (OpenAI, Anthropic, Ollama, or custom endpoints) based on your configuration</li>
-      <li>API keys are stored locally in your browser and sent directly to the chosen AI provider</li>
-      <li>Summary results are cached locally in your browser for performance</li>
-    </ul>
-
-    <h2>How We Use Your Information</h2>
-
-    <h3>Primary Uses</h3>
-    <ul>
-      <li><strong>Blog Detection:</strong> Identify blog posts on web pages you visit</li>
-      <li><strong>Link Analysis:</strong> Extract and organize links to other blog posts</li>
-      <li><strong>AI Summarization:</strong> Generate summaries of blog content (when explicitly requested)</li>
-      <li><strong>Performance:</strong> Cache data to improve extension performance</li>
-    </ul>
-
-    <h3>No Third-Party Sharing</h3>
-    <ul>
-      <li>We do not sell, rent, or share your data with third parties for marketing purposes</li>
-      <li>No data is sent to external servers except AI providers you explicitly configure</li>
-    </ul>
-
-    <h2>Data Storage and Security</h2>
-
-    <h3>Local Storage</h3>
-    <ul>
-      <li>All extension data is stored locally using browser storage APIs</li>
-      <li>Data includes: settings, preferences, cached blog metadata, and AI configuration</li>
-      <li>You can clear all extension data through browser settings or extension options</li>
-    </ul>
-
-    <h3>AI API Keys</h3>
-    <ul>
-      <li>API keys are stored locally and encrypted where browser support is available</li>
-      <li>Keys are sent directly to your chosen AI provider; we never intercept or store them</li>
-      <li>You are responsible for securing your API keys</li>
-    </ul>
-
-    <h3>Data Retention</h3>
-    <ul>
-      <li>Extension data is stored until you clear it or uninstall the extension</li>
-      <li>AI summary caches can be cleared through extension settings</li>
-      <li>No long-term data retention on external servers</li>
-    </ul>
-
-    <h2>Your Rights and Choices</h2>
-
-    <h3>Control Over Your Data</h3>
-    <ul>
-      <li><strong>Disable AI Features:</strong> Turn off AI summarization in extension settings</li>
-      <li><strong>Clear Data:</strong> Clear cached data and settings through extension options</li>
-      <li><strong>Uninstall:</strong> Remove the extension completely to delete all stored data</li>
-    </ul>
-
-    <h3>Transparency</h3>
-    <ul>
-      <li>All data processing happens locally unless AI features are used</li>
-      <li>You can see exactly what data is being processed through browser developer tools</li>
-      <li>Extension is open source; code is available for review</li>
-    </ul>
-
-    <h2>AI Service Providers</h2>
-
-    <p>When you use AI features, your chosen provider's privacy policy applies:</p>
-
-    <ul>
-      <li><strong>OpenAI:</strong> <a href="https://openai.com/policies/privacy-policy" target="_blank">https://openai.com/policies/privacy-policy</a></li>
-      <li><strong>Anthropic:</strong> <a href="https://www.anthropic.com/privacy" target="_blank">https://www.anthropic.com/privacy</a></li>
-      <li><strong>Ollama:</strong> Local processing only (no external data transmission)</li>
-      <li><strong>Custom Endpoints:</strong> Privacy policy depends on your chosen service</li>
-    </ul>
-
-    <h2>Children's Privacy</h2>
-
-    <p>The Extension is not directed to children under 13. We do not knowingly collect information from children under 13.</p>
-
-    <h2>International Data Transfers</h2>
-
-    <p>When you use AI features, data may be transferred to countries where your chosen AI provider operates. By enabling AI features, you consent to such transfers.</p>
-
-    <h2>Changes to This Privacy Policy</h2>
-
-    <p>We may update this Privacy Policy from time to time. We will notify you of any changes by:</p>
-    <ul>
-      <li>Updating the "Last Updated" date at the top of this policy</li>
-      <li>Posting in-extension notifications for significant changes</li>
-      <li>Providing in-extension notification with a link to view the updated policy</li>
-    </ul>
-
-    <h2>Contact Information</h2>
-
-    <p>If you have questions about this Privacy Policy or our data practices:</p>
-
-    <ul>
-      <li><strong>GitHub Issues:</strong> <a href="https://github.com/your-repo/blog-link-analyzer/issues" target="_blank">https://github.com/your-repo/blog-link-analyzer/issues</a></li>
-      <li><strong>Email:</strong> blog-link-analyzer@example.com</li>
-    </ul>
-
-    <h2>Compliance</h2>
-
-    <p>This Privacy Policy is designed to comply with:</p>
-    <ul>
-      <li><strong>General Data Protection Regulation (GDPR)</strong></li>
-      <li><strong>California Consumer Privacy Act (CCPA)</strong></li>
-      <li><strong>Chrome Web Store Policies</strong></li>
-      <li><strong>Firefox Add-on Guidelines</strong></li>
-    </ul>
-
-    <div class="last-updated">
-      <p><strong>Summary:</strong> The Blog Link Analyzer processes blog content locally in your browser. Only when you explicitly enable AI features does content get sent to external providers. All data is stored locally and under your control.</p>
-    </div>
+    <footer>
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/codingnooob/blogbranch" target="_blank">GitHub Repository</a>
+        <a href="https://github.com/codingnooob/blogbranch/issues" target="_blank">Report Issues</a>
+        <a href="https://github.com/codingnooob/blogbranch/blob/main/LICENSE" target="_blank">License</a>
+      </div>
+      <p style="color: #666; margin-top: 20px;">
+        © 2025 Blog Link Analyzer. Open source under MIT License.
+      </p>
+    </footer>
   </div>
-
-  <script>
-    // Load and display the privacy policy content
-    fetch('./PRIVACY.md')
-      .then(response => response.text())
-      .then(content => {
-        // Convert markdown to basic HTML for display
-        const htmlContent = content
-          .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-          .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-          .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em>$1</em>')
-          .replace(/^- (.+)$/gm, '<li>$1</li>')
-          .replace(/^\d+\. /gm, '<li>$1</li>')
-          .replace(/\n\n/g, '</li><li>')
-          .replace(/\n/g, '<br>');
-        
-        document.body.innerHTML = `<div class="container">${htmlContent}</div>`;
-      })
-      .catch(error => {
-        document.body.innerHTML = '<div class="container"><h1>Error Loading Privacy Policy</h1><p>Please try refreshing the page or contact us directly.</p></div>';
-      });
-  </script>
 </body>
 </html>
