@@ -1745,6 +1745,33 @@
       // Determine which model to use
       const finalModel = useCustomModel && customModel ? customModel : model;
       
+      // Get provider config for validation
+      const providerConfig = aiService?.getProviderConfig(provider);
+      
+      // Handle API key saving with validation
+      let apiKey = null;
+      if (apiKeyInput.value && !apiKeyInput.value.includes('•')) {
+        // New API key entered (not masked)
+        apiKey = apiKeyInput.value.trim();
+        
+        if (providerConfig?.requiresApiKey && !apiKey) {
+          throw new Error(`API key is required for ${providerConfig.name || provider}`);
+        }
+        
+        if (apiKey) {
+          // Basic validation - check minimum length
+          if (apiKey.length < 8) {
+            throw new Error('API key appears to be too short (minimum 8 characters)');
+          }
+          
+          await storageManager.saveApiKey(provider, apiKey);
+          console.log(`Blog Link Analyzer: API key saved for provider: ${provider}`);
+        }
+      } else if (providerConfig?.requiresApiKey && !apiKeyInput.value.includes('•')) {
+        // Provider requires API key but field is empty
+        throw new Error(`API key is required for ${providerConfig.name || provider}`);
+      }
+      
       // Save settings
       const newSettings = {
         provider,
