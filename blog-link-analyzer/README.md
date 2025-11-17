@@ -10,6 +10,10 @@ A Chrome/Firefox extension that detects blog posts and extracts linked blog cont
 - **Interactive UI**: Dropdown interface with expandable nested links
 - **Cross-Platform Support**: Works on WordPress, Medium, Substack, Ghost, and other blog platforms
 - **Cross-Browser Compatibility**: Supports both Chrome and Firefox
+- **🤖 AI Summarization**: Generate intelligent summaries of blog posts using multiple AI providers (OpenAI, Anthropic, Ollama, Custom)
+- **Smart Caching**: Optional summary caching to improve performance
+- **Multi-Provider Support**: Choose from various AI providers or use custom endpoints
+- **Real-time Status**: AI configuration status banner with quick setup access
 
 ## Installation
 
@@ -36,8 +40,26 @@ A Chrome/Firefox extension that detects blog posts and extracts linked blog cont
    - List of linked posts with titles and authors
    - Confidence scores for each link
    - Expandable nested links (for internal links)
-4. Use the search and filter options to find specific posts
-5. Click on any post to open it in a new tab
+4. **AI Features** (optional setup required):
+   - Click the AI status banner to configure AI provider
+   - Use 🤖 buttons to summarize individual blog posts
+   - Click "Summarize Current Page" for the current article
+   - Configure settings like caching, model selection, and API keys
+5. Use the search and filter options to find specific posts
+6. Click on any post to open it in a new tab
+
+### AI Setup Quick Start
+
+1. Click the AI status banner (appears when extension is first used)
+2. Choose your AI provider:
+   - **OpenAI**: Fast and reliable (requires API key)
+   - **Ollama**: Free and private (requires local installation)
+   - **Anthropic**: Advanced reasoning (requires API key)
+3. Enter your API key (not required for Ollama)
+4. Click "Test Connection" to verify setup
+5. Start summarizing!
+
+📖 **For detailed AI setup instructions**, see [QUICK_START.md](QUICK_START.md) or [AI_FEATURES.md](AI_FEATURES.md)
 
 ## Architecture
 

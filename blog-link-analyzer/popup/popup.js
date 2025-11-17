@@ -42,9 +42,24 @@
   let currentParentLink = null;
   let nestedLinkCache = new Map(); // Cache for fetched nested links
   
+  // AI Feature State
+  let aiService = null;
+  let storageManager = null;
+  let contentFetcher = null;
+  let aiSettings = null;
+  let currentSummaryRequest = null;
+  
+  // Regenerate Summary Context
+  let currentSummaryContext = {
+    link: null,
+    content: null,
+    metadata: null,
+    isCurrentPage: false
+  };
+  
   // Configuration
   const CONFIG = {
-    MAX_DEPTH: 10, // Maximum nesting depth to prevent infinite loops
+    MAX_DEPTH: 25, // Default maximum nesting depth (user configurable)
     MAX_CACHE_SIZE: 200, // Maximum number of cached nested link sets
     MAX_VISIBLE_LINKS: 100, // Maximum links to show at once for performance
     NESTED_LINKS_LIMIT: 50, // Maximum nested links to fetch per page
@@ -281,7 +296,7 @@
     });
     showLoading('Analyzing page for blog posts...', true);
 
-    const maxRetries = 3;
+    let maxRetries = 3;
     const retryDelays = [1000, 2000, 3000]; // Progressive delays
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -334,13 +349,7 @@
         if (response && response.success && response.data) {
           blogData = response.data;
           
-          // DEBUG: Show received data
-          const debugDiv = document.getElementById('debug-data');
-          const debugContent = document.getElementById('debug-content');
-          if (debugDiv && debugContent) {
-            debugDiv.style.display = 'block';
-            debugContent.textContent = JSON.stringify(response.data, null, 2);
-          }
+
           
           // Force fresh data on first successful response
           if (response.data.blogLinks && response.data.blogLinks.length > 0) {
@@ -497,8 +506,16 @@
       // Send keep-alive to wake up service worker
       await sendKeepAlive();
       
+      // Initialize AI services
+      await initializeAIServices();
+      
       // Initialize elements first - use the global elements object
       initializeElements();
+      
+      // Initialize AI status banner after elements are ready
+      if (aiService && storageManager) {
+        await initializeAIStatusBanner();
+      }
       
       // Check if critical elements are found
       const criticalElements = ['settingsButton', 'loadingSection', 'linksSection', 'errorSection'];
@@ -652,6 +669,11 @@
     // Update counts
     elements.linkCount.textContent = blogData.blogLinks.length;
     
+    // Show current page summary button if AI is available
+    if (aiService && storageManager) {
+      showCurrentPageSummaryButton();
+    }
+    
     // Apply initial filters
     applyFilters();
   }
@@ -736,11 +758,34 @@
 
       // Set up expand button
       const expandButton = clone.querySelector('.expand-button');
-      if (link.isInternal && currentDepth < CONFIG.MAX_DEPTH) {
+      const depthLimit = CONFIG.MAX_DEPTH === Infinity ? 'unlimited' : CONFIG.MAX_DEPTH;
+      if (link.isInternal && (CONFIG.MAX_DEPTH === Infinity || currentDepth < CONFIG.MAX_DEPTH)) {
         expandButton.addEventListener('click', () => toggleNestedLinks(link.id, expandButton));
-        expandButton.title = `Show nested links from "${link.title || link.text}"`;
+        expandButton.title = `Show nested links from "${link.title || link.text}" (depth: ${currentDepth + 1}/${depthLimit})`;
       } else {
         expandButton.style.display = 'none';
+        if (link.isInternal && CONFIG.MAX_DEPTH !== Infinity && currentDepth >= CONFIG.MAX_DEPTH) {
+          // Add depth limit indicator
+          const depthIndicator = document.createElement('span');
+          depthIndicator.className = 'depth-limit-indicator';
+          depthIndicator.textContent = ` (max depth ${CONFIG.MAX_DEPTH} reached)`;
+          depthIndicator.style.cssText = `
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            margin-left: 4px;
+          `;
+          clone.querySelector('.link-actions').appendChild(depthIndicator);
+        }
+      }
+
+      // Set up summarize button
+      const summarizeButton = clone.querySelector('.summarize-button');
+      if (aiService && storageManager) {
+        summarizeButton.addEventListener('click', () => summarizeLink(link, summarizeButton));
+        summarizeButton.title = `Summarize "${link.title || link.text}" with AI`;
+      } else {
+        summarizeButton.style.display = 'none';
       }
 
       // Set up open button
@@ -785,6 +830,1079 @@
       renderTime: Math.round(performanceMetrics.renderTime) + 'ms',
       depth: currentDepth
     });
+  }
+
+  // AI Feature Functions
+  
+  // AI Status Banner Management
+  class AIStatusBanner {
+    constructor() {
+      this.banner = elements.aiStatusBanner;
+      this.icon = elements.bannerIcon;
+      this.message = elements.bannerMessage;
+      this.action = elements.bannerAction;
+      this.close = elements.bannerClose;
+      this.currentState = 'hidden';
+      this.dismissedStates = new Set(); // Track which states user has dismissed
+      
+      this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+      if (this.action) {
+        this.action.addEventListener('click', () => {
+          showAISettingsModal();
+        });
+      }
+      
+      if (this.close) {
+        this.close.addEventListener('click', () => {
+          this.dismiss();
+        });
+      }
+    }
+    
+    show(state, message, options = {}) {
+      if (!this.banner) return;
+      
+      // Don't show if user has dismissed this state and it's not critical
+      if (this.dismissedStates.has(state) && !options.critical) {
+        return;
+      }
+      
+      this.currentState = state;
+      this.banner.className = `ai-status-banner ${state}`;
+      
+      // Set icon based on state
+      const icons = {
+        error: '❌',
+        warning: '⚠️',
+        success: '✅',
+        info: 'ℹ️'
+      };
+      
+      if (this.icon) this.icon.textContent = icons[state] || '⚠️';
+      if (this.message) this.message.textContent = message;
+      
+      // Set action button text
+      if (this.action) {
+        this.action.textContent = options.actionText || 'Configure';
+        this.action.style.display = options.showAction !== false ? 'inline-block' : 'none';
+      }
+      
+      this.banner.style.display = 'flex';
+    }
+    
+    hide() {
+      if (!this.banner) return;
+      this.banner.style.display = 'none';
+      this.currentState = 'hidden';
+    }
+    
+    dismiss() {
+      this.dismissedStates.add(this.currentState);
+      this.hide();
+    }
+    
+    clearDismissed() {
+      this.dismissedStates.clear();
+    }
+  }
+  
+  let aiStatusBanner = null;
+  
+  // Check AI configuration and show appropriate banner
+  async function checkAIConfiguration() {
+    if (!aiService || !storageManager) {
+      return { state: 'error', message: 'AI services not available', critical: true };
+    }
+    
+    try {
+      const settings = await storageManager.getAISettings();
+      const providerConfig = aiService.getProviderConfig(settings.provider);
+      
+      // Check if API key is required but missing
+      if (providerConfig.requiresApiKey) {
+        const apiKey = await storageManager.getApiKey(settings.provider);
+        if (!apiKey) {
+          return { 
+            state: 'warning', 
+            message: `API key required for ${providerConfig.name}`,
+            actionText: 'Add API Key',
+            critical: false
+          };
+        }
+      }
+      
+      // Check if custom model is enabled but empty
+      if (settings.useCustomModel && !settings.customModel) {
+        return { 
+          state: 'warning', 
+          message: 'Custom model name is empty',
+          actionText: 'Set Model Name',
+          critical: false
+        };
+      }
+      
+      // Test connection if everything looks configured
+      const apiKey = await storageManager.getApiKey(settings.provider);
+      const testResult = await aiService.testConnection(
+        settings.provider,
+        apiKey,
+        settings.endpoint,
+        settings.useCustomModel ? settings.customModel : settings.model
+      );
+      
+      if (!testResult.success) {
+        return { 
+          state: 'error', 
+          message: `AI connection failed: ${testResult.error}`,
+          actionText: 'Fix Settings',
+          critical: true
+        };
+      }
+      
+      return { state: 'success', message: 'AI features ready' };
+      
+    } catch (error) {
+      console.error('Blog Link Analyzer: AI configuration check failed:', error);
+      return { 
+        state: 'error', 
+        message: 'AI configuration error',
+        actionText: 'Check Settings',
+        critical: true
+      };
+    }
+  }
+  
+  // Initialize AI status banner
+  async function initializeAIStatusBanner() {
+    aiStatusBanner = new AIStatusBanner();
+    
+    const config = await checkAIConfiguration();
+    
+    if (config.state === 'success') {
+      // Don't show success banner, just hide any existing ones
+      aiStatusBanner.hide();
+    } else {
+      aiStatusBanner.show(config.state, config.message, {
+        actionText: config.actionText,
+        critical: config.critical
+      });
+    }
+  }
+  
+  // Show current page summary button
+  function showCurrentPageSummaryButton() {
+    const currentSummaryButton = document.getElementById('summarize-current-page');
+    if (currentSummaryButton && blogData?.isBlog) {
+      currentSummaryButton.style.display = 'flex';
+    }
+  }
+
+  // Summarize a specific blog link
+  async function summarizeLink(link, button) {
+    if (!aiService || !storageManager) {
+      showToast('AI services not available', 'error');
+      return;
+    }
+
+    try {
+      // Disable button and show loading
+      button.disabled = true;
+      button.innerHTML = '<span class="summarize-icon">⏳</span>';
+      
+      // Check for cached summary first
+      if (aiSettings.cacheSummaries) {
+        const cachedSummary = await storageManager.getCachedSummary(link.href);
+        if (cachedSummary) {
+          showSummaryModal(link, cachedSummary.summary, cachedSummary);
+          return;
+        }
+      }
+
+      // Show loading modal
+      showSummaryModalLoading(link);
+
+      // Fetch content
+      const content = await contentFetcher.fetchContent(link.href);
+      if (!content.success) {
+        throw new Error(content.error);
+      }
+
+      // Validate extracted content
+      if (!content.text || content.text.trim().length === 0) {
+        throw new Error('No readable content found on page. The page might be empty, blocked, or use dynamic loading.');
+      }
+
+      // Different thresholds for external vs current page content
+      const isExternalContent = link && link.href && link.href !== window.location.href;
+      const minLength = isExternalContent ? 25 : 50; // More lenient for external content
+
+      if (content.text.trim().length < minLength) {
+        const context = isExternalContent 
+          ? 'external link content' 
+          : 'current page content';
+        throw new Error(`Content too short to summarize (less than ${minLength} characters). The ${context} might be a placeholder, loading error, or have very minimal content.`);
+      }
+
+      console.log('Blog Link Analyzer: Content extracted successfully:', {
+        url: link.href,
+        contentLength: content.text.length,
+        wordCount: content.wordCount,
+        title: content.title,
+        preview: content.text.substring(0, 100) + '...'
+      });
+
+      // Get API key for current provider
+      const apiKey = await storageManager.getApiKey(aiSettings.provider);
+      
+      // Generate summary
+      const summary = await aiService.summarize({
+        content: content.text,
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        apiKey: apiKey,
+        endpoint: aiSettings.endpoint,
+        maxTokens: aiSettings.maxTokens
+      });
+
+      // Cache summary
+      if (aiSettings.cacheSummaries) {
+        await storageManager.cacheSummary(link.href, {
+          summary: summary,
+          title: content.title,
+          author: content.author,
+          wordCount: content.wordCount
+        });
+      }
+
+      // Show summary
+      showSummaryModal(link, summary, content);
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Summary generation failed:', error);
+      
+      // Enhanced error handling with specific guidance
+      let userMessage = error.message;
+      let troubleshooting = '';
+      
+      if (error.message.includes('Content is required')) {
+        userMessage = 'No content could be extracted from the page';
+        troubleshooting = 'The page might be blocked, use dynamic loading, or be a paywall.';
+      } else if (error.message.includes('No readable content found')) {
+        userMessage = 'Unable to read page content';
+        troubleshooting = 'Try refreshing the page or check if it\'s accessible.';
+      } else if (error.message.includes('Content too short')) {
+        userMessage = 'Page content is too short to summarize';
+        troubleshooting = 'The page might be a placeholder, loading, or very brief.';
+      } else if (error.message.includes('API key is required')) {
+        userMessage = 'AI provider requires API key configuration';
+        troubleshooting = 'Click the AI status banner to configure your API key.';
+      } else if (error.message.includes('API key is invalid')) {
+        userMessage = 'API key appears to be invalid';
+        troubleshooting = 'Check your API key in AI settings and try again.';
+      } else if (error.message.includes('quota') || error.message.includes('rate limit')) {
+        userMessage = 'API quota exceeded or rate limited';
+        troubleshooting = 'Wait a few minutes or check your API plan limits.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network connection failed';
+        troubleshooting = 'Check your internet connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Request timed out';
+        troubleshooting = 'The page or AI service is responding slowly. Try again.';
+      }
+      
+      showSummaryModalError(link, userMessage);
+      
+      // Show enhanced toast with troubleshooting
+      const fullMessage = troubleshooting ? 
+        `${userMessage}\n💡 ${troubleshooting}` : 
+        userMessage;
+      
+      showToast(fullMessage, 'error', 8000); // Longer display for complex errors
+    } finally {
+      // Restore button
+      button.disabled = false;
+      button.innerHTML = '<span class="summarize-icon">🤖</span>';
+    }
+  }
+
+  // Summarize current page
+  async function summarizeCurrentPage() {
+    if (!aiService || !storageManager) {
+      showToast('AI services not available', 'error');
+      return;
+    }
+
+    try {
+      const button = document.getElementById('summarize-current-page');
+      if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="icon">⏳</span><span>Generating...</span>';
+      }
+
+      // Get current tab content
+      const content = await contentFetcher.getCurrentTabContent();
+      if (!content.success) {
+        throw new Error(content.error);
+      }
+
+      // Validate extracted content
+      if (!content.text || content.text.trim().length === 0) {
+        throw new Error('No readable content found on the current page. The page might be empty, blocked, or still loading.');
+      }
+
+      if (content.text.trim().length < 50) { // Standard threshold for current page
+        throw new Error('Content too short to summarize (less than 50 characters). The current page might be a placeholder, loading error, or have very minimal content.');
+      }
+
+      console.log('Blog Link Analyzer: Current page content extracted successfully:', {
+        url: content.url,
+        contentLength: content.text.length,
+        wordCount: content.wordCount,
+        title: content.title,
+        preview: content.text.substring(0, 100) + '...'
+      });
+
+      // Check for cached summary first
+      if (aiSettings.cacheSummaries) {
+        const cachedSummary = await storageManager.getCachedSummary(content.url);
+        if (cachedSummary) {
+          showSummaryModal({ href: content.url, title: content.title }, cachedSummary.summary, cachedSummary);
+          return;
+        }
+      }
+
+      // Get API key
+      const apiKey = await storageManager.getApiKey(aiSettings.provider);
+      
+      // Generate summary
+      const summary = await aiService.summarize({
+        content: content.text,
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        apiKey: apiKey,
+        endpoint: aiSettings.endpoint,
+        maxTokens: aiSettings.maxTokens
+      });
+
+      // Cache the summary
+      if (aiSettings.cacheSummaries) {
+        await storageManager.cacheSummary(content.url, {
+          summary: summary,
+          title: content.title,
+          author: content.author,
+          wordCount: content.wordCount
+        });
+      }
+
+      // Show summary
+      showSummaryModal({ href: content.url, title: content.title }, summary, content);
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Current page summary failed:', error);
+      
+      // Enhanced error handling with specific guidance
+      let userMessage = error.message;
+      let troubleshooting = '';
+      
+      if (error.message.includes('Content is required')) {
+        userMessage = 'No content could be extracted from the current page';
+        troubleshooting = 'The page might be blocked, use dynamic loading, or be a paywall.';
+      } else if (error.message.includes('No readable content found')) {
+        userMessage = 'Unable to read current page content';
+        troubleshooting = 'Try refreshing the page or navigate to a different article.';
+      } else if (error.message.includes('Content too short')) {
+        userMessage = 'Current page content is too short to summarize';
+        troubleshooting = 'The page might be a placeholder or very brief content.';
+      } else if (error.message.includes('All content extraction methods failed')) {
+        userMessage = 'Cannot extract content from this page';
+        troubleshooting = 'This page type may not be supported. Try a different article.';
+      } else if (error.message.includes('API key is required')) {
+        userMessage = 'AI provider requires API key configuration';
+        troubleshooting = 'Click the AI status banner to configure your API key.';
+      } else if (error.message.includes('API key is invalid')) {
+        userMessage = 'API key appears to be invalid';
+        troubleshooting = 'Check your API key in AI settings and try again.';
+      } else if (error.message.includes('quota') || error.message.includes('rate limit')) {
+        userMessage = 'API quota exceeded or rate limited';
+        troubleshooting = 'Wait a few minutes or check your API plan limits.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network connection failed';
+        troubleshooting = 'Check your internet connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Request timed out';
+        troubleshooting = 'The page or AI service is responding slowly. Try again.';
+      }
+      
+      showSummaryModalError({ href: content.url, title: content.title }, userMessage);
+      
+      // Show enhanced toast with troubleshooting
+      const fullMessage = troubleshooting ? 
+        `${userMessage}\n💡 ${troubleshooting}` : 
+        userMessage;
+      
+      showToast(fullMessage, 'error', 8000); // Longer display for complex errors
+    } finally {
+      const button = document.getElementById('summarize-current-page');
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = '<span class="icon">🤖</span><span>Summarize Current Page</span>';
+      }
+    }
+  }
+
+  // Show summary modal
+  function showSummaryModal(link, summary, metadata) {
+    const modal = document.getElementById('summary-modal');
+    const titleElement = document.getElementById('summary-title');
+    const metaElement = document.getElementById('summary-meta');
+    const textElement = document.getElementById('summary-text');
+
+    // Store context for regenerate functionality
+    currentSummaryContext = {
+      link: link,
+      content: metadata,
+      metadata: metadata,
+      isCurrentPage: !link.href || link.href === window.location.href
+    };
+
+    if (titleElement) titleElement.textContent = link.title || 'Untitled';
+    if (metaElement) {
+      const metaInfo = [];
+      if (metadata.author) metaInfo.push(`By ${metadata.author}`);
+      if (metadata.wordCount) metaInfo.push(`${metadata.wordCount} words`);
+      if (link.href) metaInfo.push(new URL(link.href).hostname);
+      metaElement.textContent = metaInfo.join(' • ');
+    }
+    if (textElement) textElement.textContent = summary;
+
+    if (modal) modal.style.display = 'flex';
+  }
+  
+  // Show summary loading state in modal
+  function showSummaryModalLoading(link) {
+    const modal = document.getElementById('summary-modal');
+    const titleElement = document.getElementById('summary-title');
+    const metaElement = document.getElementById('summary-meta');
+    const textElement = document.getElementById('summary-text');
+
+    // Store context for regenerate functionality
+    currentSummaryContext = {
+      link: link,
+      content: null,
+      metadata: null,
+      isCurrentPage: !link.href || link.href === window.location.href
+    };
+
+    if (titleElement) titleElement.textContent = link.title || 'Untitled';
+    if (metaElement) metaElement.textContent = 'Generating summary...';
+    if (textElement) {
+      textElement.innerHTML = `
+        <div class="summary-loading">
+          <div class="loading-spinner"></div>
+          <p>Generating summary...</p>
+        </div>
+      `;
+    }
+
+    if (modal) modal.style.display = 'flex';
+  }
+  
+  // Show summary error in modal
+  function showSummaryModalError(link, error) {
+    const modal = document.getElementById('summary-modal');
+    const titleElement = document.getElementById('summary-title');
+    const metaElement = document.getElementById('summary-meta');
+    const textElement = document.getElementById('summary-text');
+
+    if (titleElement) titleElement.textContent = link.title || 'Untitled';
+    if (metaElement) metaElement.textContent = 'Error generating summary';
+    if (textElement) {
+      textElement.innerHTML = `
+        <div class="summary-error">
+          <div class="error-icon">⚠️</div>
+          <p><strong>Failed to generate summary</strong></p>
+          <p>${error}</p>
+          <button class="button button-secondary" onclick="hideSummaryModal()">Close</button>
+        </div>
+      `;
+    }
+
+    if (modal) modal.style.display = 'flex';
+  }
+
+  // Hide summary modal
+  function hideSummaryModal() {
+    const modal = document.getElementById('summary-modal');
+    if (modal) modal.style.display = 'none';
+    // Clear context when modal is closed
+    currentSummaryContext = {
+      link: null,
+      content: null,
+      metadata: null,
+      isCurrentPage: false
+    };
+  }
+
+  // Clear cache for specific URL
+  async function clearCacheForUrl(url) {
+    if (!storageManager || !url) return;
+    
+    try {
+      const summaries = await storageManager.get(storageManager.storageKeys.SUMMARIES) || {};
+      if (summaries[url]) {
+        delete summaries[url];
+        await storageManager.set(storageManager.storageKeys.SUMMARIES, summaries);
+        console.log(`Blog Link Analyzer: Cleared cache for ${url}`);
+      }
+    } catch (error) {
+      console.warn(`Blog Link Analyzer: Failed to clear cache for ${url}:`, error);
+    }
+  }
+
+  // Regenerate current summary
+  async function regenerateCurrentSummary() {
+    if (!aiService || !storageManager || !contentFetcher) {
+      showToast('AI services not available', 'error');
+      return;
+    }
+
+    if (!currentSummaryContext.link) {
+      showToast('No summary context available for regeneration', 'error');
+      return;
+    }
+
+    try {
+      // Disable regenerate button and show loading state
+      const regenerateButton = document.getElementById('regenerate-summary');
+      if (regenerateButton) {
+        regenerateButton.disabled = true;
+        regenerateButton.innerHTML = '🔄 Regenerating...';
+      }
+
+      // Show loading state in modal
+      const textElement = document.getElementById('summary-text');
+      const metaElement = document.getElementById('summary-meta');
+      
+      if (metaElement) metaElement.textContent = 'Regenerating summary...';
+      if (textElement) {
+        textElement.innerHTML = `
+          <div class="summary-loading">
+            <div class="loading-spinner"></div>
+            <p>Regenerating summary...</p>
+          </div>
+        `;
+      }
+
+      const url = currentSummaryContext.link.href || currentSummaryContext.content?.url;
+      if (!url) {
+        throw new Error('No URL available for regeneration');
+      }
+
+      // Clear cache to force fresh generation
+      await clearCacheForUrl(url);
+
+      let content;
+      
+      // Use existing content if available, otherwise fetch fresh content
+      if (currentSummaryContext.content && currentSummaryContext.content.text) {
+        console.log('Blog Link Analyzer: Using existing content for regeneration');
+        content = currentSummaryContext.content;
+      } else {
+        console.log('Blog Link Analyzer: Fetching fresh content for regeneration');
+        
+        if (currentSummaryContext.isCurrentPage) {
+          content = await contentFetcher.getCurrentTabContent();
+        } else {
+          content = await contentFetcher.fetchContent(url);
+        }
+        
+        if (!content.success) {
+          throw new Error(content.error);
+        }
+      }
+
+      // Validate content
+      if (!content.text || content.text.trim().length === 0) {
+        throw new Error('No readable content found for regeneration.');
+      }
+
+      // Check content length
+      const minLength = currentSummaryContext.isCurrentPage ? 50 : 25;
+      if (content.text.trim().length < minLength) {
+        throw new Error(`Content too short to summarize (less than ${minLength} characters).`);
+      }
+
+      console.log('Blog Link Analyzer: Content validated for regeneration:', {
+        url: url,
+        contentLength: content.text.length,
+        wordCount: content.wordCount,
+        isCurrentPage: currentSummaryContext.isCurrentPage
+      });
+
+      // Get API key
+      const apiKey = await storageManager.getApiKey(aiSettings.provider);
+      
+      // Generate new summary
+      const summary = await aiService.summarize({
+        content: content.text,
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        apiKey: apiKey,
+        endpoint: aiSettings.endpoint,
+        maxTokens: aiSettings.maxTokens
+      });
+
+      // Update context with new content
+      currentSummaryContext.content = content;
+      currentSummaryContext.metadata = content;
+
+      // Cache the new summary
+      if (aiSettings.cacheSummaries) {
+        await storageManager.cacheSummary(url, {
+          summary: summary,
+          title: content.title,
+          author: content.author,
+          wordCount: content.wordCount
+        });
+      }
+
+      // Update modal with new summary
+      const titleElement = document.getElementById('summary-title');
+      const metaElementFinal = document.getElementById('summary-meta');
+      const textElementFinal = document.getElementById('summary-text');
+
+      if (titleElement) titleElement.textContent = currentSummaryContext.link.title || content.title || 'Untitled';
+      if (metaElementFinal) {
+        const metaInfo = [];
+        if (content.author) metaInfo.push(`By ${content.author}`);
+        if (content.wordCount) metaInfo.push(`${content.wordCount} words`);
+        if (url) metaInfo.push(new URL(url).hostname);
+        metaInfo.push('🔄 Regenerated');
+        metaElementFinal.textContent = metaInfo.join(' • ');
+      }
+      if (textElementFinal) textElementFinal.textContent = summary;
+
+      showToast('Summary regenerated successfully', 'success');
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Summary regeneration failed:', error);
+      
+      // Enhanced error handling
+      let userMessage = error.message;
+      let troubleshooting = '';
+      
+      if (error.message.includes('No readable content found')) {
+        userMessage = 'Unable to read content for regeneration';
+        troubleshooting = 'The page content may have changed or become inaccessible.';
+      } else if (error.message.includes('Content too short')) {
+        userMessage = 'Content too short to summarize';
+        troubleshooting = 'The page may have changed or contains minimal content.';
+      } else if (error.message.includes('API key is required')) {
+        userMessage = 'AI provider requires API key configuration';
+        troubleshooting = 'Click AI status banner to configure your API key.';
+      } else if (error.message.includes('API key is invalid')) {
+        userMessage = 'API key appears to be invalid';
+        troubleshooting = 'Check your API key in AI settings and try again.';
+      } else if (error.message.includes('quota') || error.message.includes('rate limit')) {
+        userMessage = 'API quota exceeded or rate limited';
+        troubleshooting = 'Wait a few minutes or check your API plan limits.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network connection failed';
+        troubleshooting = 'Check your internet connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Request timed out';
+        troubleshooting = 'The AI service is responding slowly. Try again.';
+      }
+      
+      // Show error in modal
+      const textElement = document.getElementById('summary-text');
+      const metaElement = document.getElementById('summary-meta');
+      
+      if (metaElement) metaElement.textContent = 'Regeneration failed';
+      if (textElement) {
+        textElement.innerHTML = `
+          <div class="summary-error">
+            <div class="error-icon">⚠️</div>
+            <p><strong>Failed to regenerate summary</strong></p>
+            <p>${userMessage}</p>
+            ${troubleshooting ? `<p><em>💡 ${troubleshooting}</em></p>` : ''}
+            <button class="button button-secondary" onclick="regenerateCurrentSummary()">Try Again</button>
+            <button class="button button-secondary" onclick="hideSummaryModal()">Close</button>
+          </div>
+        `;
+      }
+      
+      // Show enhanced toast
+      const fullMessage = troubleshooting ? 
+        `${userMessage}\n💡 ${troubleshooting}` : 
+        userMessage;
+      
+      showToast(fullMessage, 'error', 8000);
+      
+    } finally {
+      // Restore regenerate button
+      const regenerateButton = document.getElementById('regenerate-summary');
+      if (regenerateButton) {
+        regenerateButton.disabled = false;
+        regenerateButton.innerHTML = '🔄 Regenerate';
+      }
+    }
+  }
+
+  // Show AI settings modal
+  function showAISettingsModal() {
+    const modal = document.getElementById('ai-settings-modal');
+    if (modal) modal.style.display = 'flex';
+    
+    // Load current settings into form
+    loadAISettingsIntoForm();
+  }
+
+  // Hide AI settings modal
+  function hideAISettingsModal() {
+    const modal = document.getElementById('ai-settings-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Load AI settings into form
+  async function loadAISettingsIntoForm() {
+    if (!aiSettings) return;
+
+    try {
+      // Set provider
+      const providerSelect = document.getElementById('ai-provider');
+      if (providerSelect) {
+        providerSelect.value = aiSettings.provider;
+        await updateModelOptions(aiSettings.provider);
+      }
+
+      // Set model
+      const modelSelect = document.getElementById('ai-model');
+      const customModelInput = document.getElementById('custom-model');
+      const useCustomModelCheckbox = document.getElementById('use-custom-model');
+      const customModelGroup = document.getElementById('custom-model-group');
+      
+      if (modelSelect) modelSelect.value = aiSettings.model;
+      
+      // Set custom model settings
+      if (aiSettings.useCustomModel && aiSettings.customModel) {
+        customModelInput.value = aiSettings.customModel;
+        useCustomModelCheckbox.checked = true;
+        customModelGroup.style.display = 'block';
+      }
+
+      // Set API key (masked)
+      const apiKeyInput = document.getElementById('api-key');
+      if (apiKeyInput && aiSettings.provider !== 'ollama') {
+        const existingKey = await storageManager.getApiKey(aiSettings.provider);
+        apiKeyInput.value = existingKey ? '••••••••••••••••' : '';
+      }
+
+      // Set custom endpoint
+      const endpointInput = document.getElementById('custom-endpoint');
+      if (endpointInput) endpointInput.value = aiSettings.endpoint || '';
+
+      // Set sliders
+      const maxTokensSlider = document.getElementById('max-tokens');
+      const temperatureSlider = document.getElementById('temperature');
+      if (temperatureSlider) {
+        temperatureSlider.addEventListener('input', (e) => {
+          e.target.nextElementSibling.textContent = e.target.value;
+        });
+      }
+      
+      // Depth limit slider
+      const maxDepthSlider = document.getElementById('max-depth');
+      if (maxDepthSlider) {
+        maxDepthSlider.addEventListener('input', (e) => {
+          e.target.nextElementSibling.textContent = `${e.target.value} levels`;
+        });
+      }
+      
+      // No depth limit checkbox
+      const noDepthLimitCheckbox = document.getElementById('no-depth-limit');
+      if (noDepthLimitCheckbox) {
+        noDepthLimitCheckbox.addEventListener('change', (e) => {
+          maxDepthSlider.disabled = e.target.checked;
+        });
+      }
+      if (temperatureSlider) {
+        temperatureSlider.value = aiSettings.temperature;
+        temperatureSlider.nextElementSibling.textContent = aiSettings.temperature;
+      }
+
+      // Set checkboxes
+      const cacheCheckbox = document.getElementById('cache-summaries');
+      const autoCheckbox = document.getElementById('auto-summarize');
+      
+      if (cacheCheckbox) cacheCheckbox.checked = aiSettings.cacheSummaries;
+      if (autoCheckbox) autoCheckbox.checked = aiSettings.autoSummarize;
+      
+      // Set depth limit settings
+      if (maxDepthSlider) {
+        maxDepthSlider.value = aiSettings.maxDepth || 25;
+        maxDepthSlider.nextElementSibling.textContent = `${aiSettings.maxDepth || 25} levels`;
+      }
+      if (noDepthLimitCheckbox) {
+        noDepthLimitCheckbox.checked = aiSettings.noDepthLimit || false;
+        // Disable slider if no limit is set
+        maxDepthSlider.disabled = aiSettings.noDepthLimit || false;
+      }
+
+      // Show/hide relevant fields
+      toggleProviderFields(aiSettings.provider);
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to load AI settings into form:', error);
+    }
+  }
+
+  // Update model options based on provider
+  async function updateModelOptions(provider) {
+    const modelSelect = document.getElementById('ai-model');
+    if (!modelSelect || !aiService) return;
+
+    try {
+      const models = await aiService.getModels(provider, aiSettings.endpoint);
+      modelSelect.innerHTML = '';
+      
+      models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        modelSelect.appendChild(option);
+      });
+
+      // Set default model if available
+      const providerConfig = aiService.getProviderConfig(provider);
+      if (providerConfig && models.includes(providerConfig.defaultModel)) {
+        modelSelect.value = providerConfig.defaultModel;
+      }
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to update model options:', error);
+      modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+    }
+  }
+
+  // Toggle provider-specific fields
+  function toggleProviderFields(provider) {
+    const apiKeyGroup = document.getElementById('api-key-group');
+    const customEndpointGroup = document.getElementById('custom-endpoint-group');
+    
+    const providerConfig = aiService?.getProviderConfig(provider);
+    const requiresApiKey = providerConfig?.requiresApiKey;
+    const isCustom = provider === 'custom';
+
+    if (apiKeyGroup) {
+      apiKeyGroup.style.display = requiresApiKey ? 'block' : 'none';
+    }
+    if (customEndpointGroup) {
+      customEndpointGroup.style.display = isCustom ? 'block' : 'none';
+    }
+  }
+
+  // Toggle custom model option based on provider
+  function toggleCustomModelOption(provider) {
+    const useCustomModelCheckbox = document.getElementById('use-custom-model');
+    const customModelGroup = document.getElementById('custom-model-group');
+    
+    // Allow custom models for all providers, but make it more prominent for Ollama
+    if (provider === 'ollama') {
+      useCustomModelCheckbox.parentElement.style.display = 'block';
+      if (useCustomModelCheckbox.checked) {
+        customModelGroup.style.display = 'block';
+      }
+    } else {
+      useCustomModelCheckbox.parentElement.style.display = 'block';
+      if (useCustomModelCheckbox.checked) {
+        customModelGroup.style.display = 'block';
+      }
+    }
+  }
+
+  // Save AI settings
+  async function saveAISettings() {
+    if (!storageManager) return;
+
+    try {
+      const provider = document.getElementById('ai-provider').value;
+      const model = document.getElementById('ai-model').value;
+      const apiKeyInput = document.getElementById('api-key');
+      const customEndpoint = document.getElementById('custom-endpoint').value;
+      const maxTokens = parseInt(document.getElementById('max-tokens').value);
+      const temperature = parseFloat(document.getElementById('temperature').value);
+      const cacheSummaries = document.getElementById('cache-summaries').checked;
+      const autoSummarize = document.getElementById('auto-summarize').checked;
+      const maxDepth = parseInt(document.getElementById('max-depth').value);
+      const noDepthLimit = document.getElementById('no-depth-limit').checked;
+      const useCustomModel = document.getElementById('use-custom-model').checked;
+      const customModel = document.getElementById('custom-model').value.trim();
+
+      // Determine which model to use
+      const finalModel = useCustomModel && customModel ? customModel : model;
+      
+      // Save settings
+      const newSettings = {
+        provider,
+        model: finalModel,
+        endpoint: customEndpoint,
+        maxTokens,
+        temperature,
+        cacheSummaries,
+        autoSummarize,
+        maxDepth,
+        noDepthLimit,
+        useCustomModel,
+        customModel: useCustomModel ? customModel : null
+      };
+
+      await storageManager.saveAISettings(newSettings);
+      aiSettings = newSettings;
+      
+      // Update CONFIG with new depth limit
+      if (!noDepthLimit) {
+        CONFIG.MAX_DEPTH = maxDepth;
+      } else {
+        CONFIG.MAX_DEPTH = Infinity; // No limit
+      }
+
+      showToast('AI settings saved successfully', 'success');
+      hideAISettingsModal();
+      
+      // Re-check AI configuration and update banner
+      if (aiStatusBanner) {
+        await initializeAIStatusBanner();
+      }
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to save AI settings:', error);
+      showToast(`Failed to save settings: ${error.message}`, 'error');
+    }
+  }
+
+
+
+  // Test AI connection
+  async function testAIConnection() {
+    if (!aiService || !storageManager) return;
+
+    try {
+      const provider = document.getElementById('ai-provider').value;
+      const model = document.getElementById('ai-model').value;
+      const apiKeyInput = document.getElementById('api-key');
+      const customEndpoint = document.getElementById('custom-endpoint').value;
+      const useCustomModel = document.getElementById('use-custom-model').checked;
+      const customModel = document.getElementById('custom-model').value.trim();
+
+      let apiKey = null;
+      if (apiKeyInput.value && !apiKeyInput.value.includes('•')) {
+        apiKey = apiKeyInput.value;
+      } else {
+        apiKey = await storageManager.getApiKey(provider);
+      }
+
+      // Validate inputs before testing
+      if (!provider) {
+        showToast('Please select an AI provider', 'error');
+        return;
+      }
+
+      const providerConfig = aiService.getProviderConfig(provider);
+      if (providerConfig.requiresApiKey && !apiKey) {
+        showToast('API key is required for this provider', 'error');
+        return;
+      }
+
+      if (useCustomModel && !customModel) {
+        showToast('Please enter a custom model name', 'error');
+        return;
+      }
+
+      const finalModel = useCustomModel && customModel ? customModel : model;
+      if (!finalModel) {
+        showToast('Please select or enter a model name', 'error');
+        return;
+      }
+
+      const testButton = document.getElementById('test-connection');
+      if (testButton) {
+        testButton.disabled = true;
+        testButton.textContent = 'Testing...';
+      }
+
+      const result = await aiService.testConnection(provider, apiKey, customEndpoint, finalModel);
+
+      if (result.success) {
+        showToast('Connection test successful!', 'success');
+        // Update banner after successful test
+        if (aiStatusBanner) {
+          await initializeAIStatusBanner();
+        }
+      } else {
+        const errorMessage = result.error || 'Unknown error occurred';
+        showToast(`Connection test failed: ${errorMessage}`, 'error');
+        
+        // Show more specific error in banner
+        if (aiStatusBanner) {
+          aiStatusBanner.show('error', `AI connection failed: ${errorMessage}`, {
+            actionText: 'Fix Settings',
+            critical: true
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Blog Link Analyzer: Connection test failed:', error);
+      const errorMessage = error.message || 'Unknown error occurred';
+      showToast(`Connection test failed: ${errorMessage}`, 'error');
+      
+      if (aiStatusBanner) {
+        aiStatusBanner.show('error', `AI connection error: ${errorMessage}`, {
+          actionText: 'Fix Settings',
+          critical: true
+        });
+      }
+    } finally {
+      const testButton = document.getElementById('test-connection');
+      if (testButton) {
+        testButton.disabled = false;
+        testButton.textContent = 'Test Connection';
+      }
+    }
+  }
+
+  // Copy summary to clipboard
+  async function copySummaryToClipboard() {
+    const textElement = document.getElementById('summary-text');
+    if (!textElement) return;
+
+    try {
+      await navigator.clipboard.writeText(textElement.textContent);
+      showToast('Summary copied to clipboard', 'success');
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to copy summary:', error);
+      showToast('Failed to copy summary', 'error');
+    }
+  }
+
+  // Toggle password visibility
+  function togglePasswordVisibility() {
+    const apiKeyInput = document.getElementById('api-key');
+    const toggleButton = document.getElementById('toggle-api-key');
+    
+    if (apiKeyInput && toggleButton) {
+      if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        toggleButton.textContent = '🙈';
+      } else {
+        apiKeyInput.type = 'password';
+        toggleButton.textContent = '👁️';
+      }
+    }
   }
 
   // Toggle nested links for a blog post
@@ -1075,9 +2193,9 @@
           <li>Trying again in a few moments</li>
         </ul>
       `;
+      
+      errorSection.appendChild(strategies);
     }
-    
-    errorSection.appendChild(strategies);
   }
 
   // Hide all sections
@@ -1089,11 +2207,12 @@
   }
 
   // Show toast notification
-  function showToast(message, duration = 3000) {
+  function showToast(message, type = 'info', duration = 3000) {
     if (!elements.toast || !elements.toastMessage) return;
     
+    // Set message and type styling
     elements.toastMessage.textContent = message;
-    elements.toast.classList.add('show');
+    elements.toast.className = `toast show ${type}`;
     
     // Auto-hide after duration
     setTimeout(() => {
@@ -1383,11 +2502,11 @@
       }
     });
 
-    // Settings button (placeholder) with diagnostics
+    // Settings button - open AI settings
     if (elements.settingsButton) {
       elements.settingsButton.addEventListener('click', () => {
         console.log('Blog Link Analyzer: Settings button clicked');
-        showToast('Settings coming soon! 🚧');
+        showAISettingsModal();
       });
       console.log('Blog Link Analyzer: Settings button listener bound');
     } else {
@@ -1405,14 +2524,92 @@
       console.error('Blog Link Analyzer: Breadcrumb home NOT FOUND');
     }
 
+    // AI Settings modal event listeners
+    if (elements.closeSettings) {
+      elements.closeSettings.addEventListener('click', hideAISettingsModal);
+    }
+    
+    if (elements.aiProvider) {
+      elements.aiProvider.addEventListener('change', (e) => {
+        updateModelOptions(e.target.value);
+        toggleProviderFields(e.target.value);
+        // Show/hide custom model option based on provider
+        toggleCustomModelOption(e.target.value);
+      });
+    }
+    
+    // Custom model checkbox
+    if (elements.useCustomModel) {
+      elements.useCustomModel.addEventListener('change', (e) => {
+        const customModelGroup = document.getElementById('custom-model-group');
+        customModelGroup.style.display = e.target.checked ? 'block' : 'none';
+      });
+    }
+    
+    if (elements.toggleApiKey) {
+      elements.toggleApiKey.addEventListener('click', togglePasswordVisibility);
+    }
+    
+    if (elements.maxTokens) {
+      elements.maxTokens.addEventListener('input', (e) => {
+        e.target.nextElementSibling.textContent = `${e.target.value} tokens`;
+      });
+    }
+    
+    if (elements.temperature) {
+      elements.temperature.addEventListener('input', (e) => {
+        e.target.nextElementSibling.textContent = e.target.value;
+      });
+    }
+    
+    if (elements.testConnection) {
+      elements.testConnection.addEventListener('click', testAIConnection);
+    }
+    
+    if (elements.saveSettings) {
+      elements.saveSettings.addEventListener('click', saveAISettings);
+    }
+
+    // Summary modal event listeners
+    if (elements.closeSummary) {
+      elements.closeSummary.addEventListener('click', hideSummaryModal);
+    }
+    
+    if (elements.copySummary) {
+      elements.copySummary.addEventListener('click', copySummaryToClipboard);
+    }
+    
+    if (elements.regenerateSummary) {
+      elements.regenerateSummary.addEventListener('click', regenerateCurrentSummary);
+    }
+
+    // Current page summary button
+    if (elements.summarizeCurrentPage) {
+      elements.summarizeCurrentPage.addEventListener('click', summarizeCurrentPage);
+    }
+
     // Keyboard shortcuts
     const keyHandler = (e) => {
       if (e.key === 'Escape') {
-        window.close();
+        // Check if modal is open, close it first
+        const modal = document.getElementById('summary-modal');
+        if (modal && modal.style.display === 'flex') {
+          hideSummaryModal();
+        } else {
+          window.close();
+        }
       }
       if (e.key === 'r' && e.ctrlKey) {
         e.preventDefault();
         elements.refreshButton.click();
+      }
+      if (e.key === 'r' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        // Check if summary modal is open for regeneration
+        const modal = document.getElementById('summary-modal');
+        if (modal && modal.style.display === 'flex') {
+          e.preventDefault();
+          regenerateCurrentSummary();
+        }
       }
       if (e.key === '/' && !elements.searchInput.matches(':focus')) {
         e.preventDefault();
@@ -1429,6 +2626,30 @@
     };
   }
 
+  // Initialize AI Services
+  async function initializeAIServices() {
+    try {
+      console.log('Blog Link Analyzer: Initializing AI services...');
+      
+      // Initialize service instances
+      aiService = new AIService();
+      storageManager = new StorageManager();
+      contentFetcher = new ContentFetcher();
+      
+      // Load AI settings
+      aiSettings = await storageManager.getAISettings();
+      
+      console.log('Blog Link Analyzer: AI services initialized successfully');
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to initialize AI services:', error);
+      // Don't fail entire initialization if AI services fail
+      aiService = null;
+      storageManager = null;
+      contentFetcher = null;
+      aiSettings = null;
+    }
+  }
+
   // Initialize elements when DOM is ready
   function initializeElements() {
     const elementIds = [
@@ -1438,7 +2659,14 @@
       'no-results-section', 'error-section', 'links-section', 'blog-links',
       'retry-button', 'error-retry-button', 'refresh-button', 'settings-button',
       'toast', 'toast-message', 'breadcrumb-section', 'breadcrumb-home',
-      'breadcrumb-path', 'links-label'
+      'breadcrumb-path', 'links-label', 'ai-settings-modal', 'close-settings',
+      'ai-provider', 'ai-model', 'api-key', 'toggle-api-key', 'custom-endpoint',
+      'max-tokens', 'temperature', 'cache-summaries', 'auto-summarize',
+      'max-depth', 'no-depth-limit', 'custom-model', 'use-custom-model',
+      'custom-model-group', 'ai-status-banner', 'banner-icon', 'banner-message',
+      'banner-action', 'banner-close', 'test-connection', 'save-settings',
+      'summary-modal', 'close-summary', 'summary-title', 'summary-meta',
+      'summary-text', 'copy-summary', 'regenerate-summary', 'summarize-current-page'
     ];
     
     elementIds.forEach(id => {
@@ -1525,6 +2753,10 @@
     });
   }
   
+  // Make regenerate function globally accessible for onclick handlers
+  window.regenerateCurrentSummary = regenerateCurrentSummary;
+  window.hideSummaryModal = hideSummaryModal;
+
   console.log('Blog Link Analyzer: Popup script initialization completed');
 
 })();

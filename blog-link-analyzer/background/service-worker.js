@@ -262,6 +262,35 @@
             sendResponse({ success: true, messageId, timestamp: Date.now() });
             break;
 
+          case 'FETCH_EXTERNAL_CONTENT':
+            console.log(`Blog Link Analyzer: [${messageId}] Processing external content fetch:`, {
+              url: message.url,
+              timestamp: Date.now()
+            });
+            
+            try {
+              const contentData = await fetchExternalContentSimple(message.url);
+              
+              console.log(`Blog Link Analyzer: [${messageId}] External content fetched:`, {
+                url: message.url,
+                contentLength: contentData.text ? contentData.text.length : 0,
+                hasTitle: !!contentData.title,
+                hasAuthor: !!contentData.author,
+                success: contentData.success
+              });
+              
+              sendResponse({ success: true, data: contentData, messageId });
+            } catch (error) {
+              console.error(`Blog Link Analyzer: [${messageId}] External content fetch failed:`, error);
+              sendResponse({ 
+                success: false, 
+                error: error.message, 
+                messageId,
+                url: message.url 
+              });
+            }
+            break;
+
           default:
             console.warn(`Blog Link Analyzer: [${messageId}] Unknown message type:`, message.type);
             sendResponse({ success: false, error: 'Unknown message type', messageId });
@@ -318,20 +347,30 @@
             timestamp: Date.now()
           };
         } else {
+          console.log(`Blog Link Analyzer: No nested links found for ${url}`);
           return {
             url: url,
             nestedLinks: [],
-            message: 'No blog links found on nested page',
             timestamp: Date.now()
           };
         }
-      } catch (messageError) {
-        // Close the temporary tab if there was an error
-        await api.tabs.remove(tab.id).catch(() => {});
-        throw messageError;
+      } catch (error) {
+        console.error(`Blog Link Analyzer: Error fetching nested links for ${url}:`, error);
+        // Ensure tab is closed even if error occurs
+        try {
+          await api.tabs.remove(tab.id);
+        } catch (tabError) {
+          // Tab might already be closed
+        }
+        return {
+          url: url,
+          nestedLinks: [],
+          error: error.message,
+          timestamp: Date.now()
+        };
       }
     } catch (error) {
-      console.error('Blog Link Analyzer: Error fetching nested links:', error);
+      console.error(`Blog Link Analyzer: Failed to create tab for ${url}:`, error);
       return {
         url: url,
         nestedLinks: [],
@@ -341,41 +380,367 @@
     }
   }
 
-  // Handle tab updates (re-run analysis when page changes)
-  function setupTabListeners() {
-    getChromeAPI().tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url) {
-      // Clear existing data for this tab
-      await storeBlogData(tabId, null);
-      
-      // Wait a bit for content scripts to run
-      setTimeout(async () => {
-        const data = await getBlogData(tabId);
-        if (data && data.isBlog) {
-          console.log('Blog Link Analyzer: Blog detected on updated tab', tab.url);
-        }
-        }, 2000);
-      }
-    });
+  // Extract content from HTML using regex patterns (for background script)
+  function extractContentFromHTMLSimple(html, url) {
+    let title = '';
+    let author = '';
+    let publishDate = null;
+    let text = '';
 
-    // Handle tab removal (clean up data)
-    getChromeAPI().tabs.onRemoved.addListener(async (tabId) => {
-      try {
-        const api = getChromeAPI();
-        const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
-        const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
-        delete blogData[tabId];
-        await api.storage.local.set({
-          [STORAGE_KEYS.BLOG_DATA]: blogData
-        });
-        console.log(`Blog Link Analyzer: Cleaned up data for tab ${tabId}`);
-      } catch (error) {
-        console.error('Blog Link Analyzer: Error cleaning up tab data:', error);
+    try {
+      // Extract title
+      const titlePatterns = [
+        /<title[^>]*>([^<]+)<\/title>/i,
+        /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]+name=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<h1[^>]*>([^<]+)<\/h1>/i,
+        /<h2[^>]*>([^<]+)<\/h2>/i
+      ];
+
+      for (const pattern of titlePatterns) {
+        const match = html.match(pattern);
+        if (match && match[1] && match[1].trim().length > 0) {
+          title = match[1].trim();
+          break;
+        }
       }
-    });
+
+      // Extract author
+      const authorPatterns = [
+        /<meta[^>]+name=["']author["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]+property=["']article:author["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]+name=["']article:author["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<[^>]*class=["'][^"']*author["'][^>]*>([^<]+)<\/[^>]*>/i,
+        /<[^>]*class=["'][^"']*byline["'][^>]*>([^<]+)<\/[^>]*>/i
+      ];
+
+      for (const pattern of authorPatterns) {
+        const match = html.match(pattern);
+        if (match && match[1] && match[1].trim().length > 0) {
+          author = match[1].trim();
+          break;
+        }
+      }
+
+      // Extract publish date
+      const datePatterns = [
+        /<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]+name=["']article:published_time["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]+property=["']published_time["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+        /<time[^>]+datetime=["']([^"']+)["'][^>]*>/i,
+        /<[^>]*class=["'][^"']*date["'][^>]*>([^<]+)<\/[^>]*>/i
+      ];
+
+      for (const pattern of datePatterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+          const date = parseDateFromHTMLSimple(match[1]);
+          if (date && !isNaN(date.getTime())) {
+            publishDate = date;
+            break;
+          }
+        }
+      }
+
+      // Extract main content - try multiple strategies
+      const contentPatterns = [
+        // Article tags (highest priority)
+        /<article[^>]*>([\s\S]*?)<\/article>/gi,
+        // Main content areas
+        /<main[^>]*>([\s\S]*?)<\/main>/gi,
+        // Common content class names (expanded list)
+        /<[^>]*class=["'][^"']*content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*post-content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*entry-content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*article-body["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*post-body["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*story-body["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*post["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*entry["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        // Medium-specific patterns
+        /<[^>]*class=["'][^"']*article-content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*section-content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        // Dev.to and similar platforms
+        /<[^>]*class=["'][^"']*article-body["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*body-content["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        // Generic text containers
+        /<div[^>]*class=["'][^"']*text["'][^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class=["'][^"']*description["'][^>]*>([\s\S]*?)<\/div>/gi,
+        // LinkedIn and professional platforms
+        /<[^>]*class=["'][^"']*article-text["'][^>]*>([\s\S]*?)<\/[^>]*>/gi,
+        /<[^>]*class=["'][^"']*post-text["'][^>]*>([\s\S]*?)<\/[^>]*>/gi
+      ];
+
+      for (const pattern of contentPatterns) {
+        const matches = html.match(pattern);
+        if (matches && matches.length > 0) {
+          // Clean each match and take the longest one
+          for (const match of matches) {
+            const cleanMatch = match
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+              .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+              .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+              .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+              .replace(/<[^>]*class=["'][^"']*advertisement["'][^>]*>[\s\S]*?<\/[^>]*>/gi, '')
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            if (cleanMatch.length > text.length) {
+              text = cleanMatch;
+            }
+          }
+          
+          // If we found substantial content, break
+          if (text.length > 200) {
+            break;
+          }
+        }
+      }
+
+      // Fallback 1: extract all paragraph text with better filtering
+      if (!text || text.trim().length < 100) {
+        const paragraphMatches = html.match(/<p[^>]*>([^<]+)<\/p>/gi);
+        if (paragraphMatches) {
+          const paragraphText = paragraphMatches
+            .map(p => p.replace(/<[^>]*>/g, '').trim())
+            .filter(p => p.length > 15) // Increased minimum length
+            .filter(p => !p.toLowerCase().includes('advertisement'))
+            .filter(p => !p.toLowerCase().includes('sponsored'))
+            .filter(p => !p.toLowerCase().includes('click here'))
+            .filter(p => !p.match(/^\s*[\d\W]+\s*$/)) // Filter out navigation elements
+            .join(' ');
+          
+          if (paragraphText.length > text.length) {
+            text = paragraphText;
+          }
+        }
+      }
+
+      // Fallback 2: extract from common text containers
+      if (!text || text.trim().length < 100) {
+        const textContainerPatterns = [
+          /<div[^>]*class=["'][^"']*text["'][^>]*>([\s\S]*?)<\/div>/gi,
+          /<div[^>]*class=["'][^"']*description["'][^>]*>([\s\S]*?)<\/div>/gi,
+          /<section[^>]*class=["'][^"']*content["'][^>]*>([\s\S]*?)<\/section>/gi
+        ];
+
+        for (const pattern of textContainerPatterns) {
+          const matches = html.match(pattern);
+          if (matches) {
+            const containerText = matches
+              .map(match => match
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim())
+              .filter(text => text.length > 30)
+              .join(' ');
+            
+            if (containerText.length > text.length) {
+              text = containerText;
+            }
+          }
+        }
+      }
+
+      // Final fallback: extract all text content with enhanced cleaning
+      if (!text || text.trim().length < 50) {
+        const cleanHtml = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+          .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+          .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '') // Remove SVG content
+          .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '') // Remove iframes
+          .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '') // Remove forms
+          .replace(/<!--[\s\S]*?-->/g, ''); // Remove HTML comments
+        
+        const textMatches = cleanHtml.match(/<[^>]*>([^<]+)<\/[^>]*>/gi);
+        if (textMatches) {
+          const allText = textMatches
+            .map(match => match.replace(/<[^>]*>/g, '').trim())
+            .filter(text => text.length > 8) // Slightly higher threshold
+            .filter(text => !text.match(/^\s*[\d\W]+\s*$/)) // Filter out navigation
+            .filter(text => !text.toLowerCase().includes('cookie'))
+            .filter(text => !text.toLowerCase().includes('privacy'))
+            .filter(text => !text.toLowerCase().includes('terms'))
+            .filter(text => !text.toLowerCase().includes('subscribe'))
+            .join(' ')
+            .substring(0, 15000); // Increased limit for better extraction
+          
+          if (allText.length > text.length) {
+            text = allText;
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error extracting content from HTML:', error);
+    }
+
+    return {
+      title: title,
+      author: author,
+      publishDate: publishDate,
+      text: text
+    };
   }
 
+  function cleanContentFromHTMLSimple(content) {
+    if (!content) return '';
 
+    return content
+      // Remove HTML tags
+      .replace(/<[^>]*>/g, ' ')
+      // Remove excessive whitespace
+      .replace(/\s+/g, ' ')
+      // Remove newlines and tabs
+      .replace(/[\n\t\r]/g, ' ')
+      // Remove multiple spaces
+      .replace(/ {2,}/g, ' ')
+      // Trim
+      .trim()
+      // Limit length
+      .substring(0, 50000);
+  }
+
+  function generateExcerptFromHTMLSimple(content) {
+    if (!content) return '';
+    return content.substring(0, 200) + (content.length > 200 ? '...' : '');
+  }
+
+  function countWordsFromHTMLSimple(content) {
+    if (!content) return 0;
+    return content.split(/\s+/).filter(word => word.length > 0).length;
+  }
+
+  function parseDateFromHTMLSimple(dateStr) {
+    try {
+      return new Date(dateStr);
+    } catch {
+      return null;
+    }
+  }
+
+  // Fetch external content for summarization (simplified version)
+  async function fetchExternalContentSimple(url) {
+    try {
+      console.log('Blog Link Analyzer: Fetching external content:', url);
+      
+      // Validate URL
+      if (!url || typeof url !== 'string') {
+        throw new Error('Invalid URL provided');
+      }
+
+      const urlObj = new URL(url);
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+      }
+
+      // Fetch with proper headers
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Blog Link Analyzer Extension (AI Summarization)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive'
+        },
+        signal: AbortSignal.timeout(15000) // 15 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+      
+      // Extract content using simplified approach for background script
+      const content = extractContentFromHTMLSimple(html, url);
+      
+      // Clean and process content
+      const cleanedContent = cleanContentFromHTMLSimple(content.text);
+      
+      return {
+        url: url,
+        title: content.title,
+        author: content.author,
+        publishDate: content.publishDate,
+        text: cleanedContent,
+        excerpt: generateExcerptFromHTMLSimple(cleanedContent),
+        wordCount: countWordsFromHTMLSimple(cleanedContent),
+        fetchedAt: new Date().toISOString(),
+        success: true
+      };
+
+    } catch (error) {
+      console.error(`Failed to fetch external content from ${url}:`, error);
+      
+      // Provide specific error messages
+      let errorMessage = error.message;
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timeout - page took too long to load';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error - unable to access page';
+      } else if (error.message.includes('HTTP 403')) {
+        errorMessage = 'Access forbidden - page may block automated access';
+      } else if (error.message.includes('HTTP 404')) {
+        errorMessage = 'Page not found - URL may be incorrect';
+      } else if (error.message.includes('CORS')) {
+        errorMessage = 'Access blocked by browser security policy';
+      }
+      
+      return {
+        url: url,
+        error: errorMessage,
+        success: false,
+        fetchedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  // Setup tab event listeners
+  function setupTabListeners() {
+    try {
+      const api = getChromeAPI();
+      if (api.tabs && api.tabs.onUpdated) {
+        api.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+          if (changeInfo.status === 'complete' && tab.url) {
+            console.log('Blog Link Analyzer: Tab updated:', tabId, tab.url);
+            // Clear existing data for this tab when it navigates
+            getBlogData(tabId).then(existingData => {
+              if (existingData && existingData.url !== tab.url) {
+                // Tab navigated to different URL, clear the data
+                storeBlogData(tabId, null);
+              }
+            }).catch(error => {
+              // Ignore errors, just continue
+            });
+          }
+        });
+        
+        api.tabs.onRemoved.addListener((tabId) => {
+          console.log('Blog Link Analyzer: Tab removed:', tabId);
+          // Clean up data when tab is closed
+          storeBlogData(tabId, null);
+        });
+        
+        console.log('Blog Link Analyzer: Tab listeners setup successful');
+      } else {
+        console.log('Blog Link Analyzer: Tabs API not available, skipping tab listeners');
+      }
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to setup tab listeners:', error);
+    }
+  }
 
   // Clean up old data periodically
   function setupAlarms() {
@@ -466,6 +831,35 @@
   function updateActivity() {
     lastActivityTime = Date.now();
     console.log('Blog Link Analyzer: Activity updated:', new Date(lastActivityTime).toISOString());
+  }
+
+  // Clean up old data
+  async function cleanupOldData() {
+    try {
+      const api = getChromeAPI();
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      const blogData = result[STORAGE_KEYS.BLOG_DATA] || {};
+      
+      const now = Date.now();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      let cleanedCount = 0;
+      
+      for (const [tabId, data] of Object.entries(blogData)) {
+        if (data && data.timestamp && (now - data.timestamp > maxAge)) {
+          delete blogData[tabId];
+          cleanedCount++;
+        }
+      }
+      
+      if (cleanedCount > 0) {
+        await api.storage.local.set({
+          [STORAGE_KEYS.BLOG_DATA]: blogData
+        });
+        console.log(`Blog Link Analyzer: Cleaned up ${cleanedCount} old data entries`);
+      }
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to cleanup old data:', error);
+    }
   }
 
   // Main initialization function

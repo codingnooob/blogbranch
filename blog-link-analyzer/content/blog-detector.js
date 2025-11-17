@@ -125,27 +125,104 @@
   }
 
   // Get the main content area
-  function getMainContent() {
-    const contentSelectors = [
+  function getMainContentElement() {
+    const selectors = [
       'article',
       'main',
       '[role="main"]',
-      '[class*="content"]',
-      '[class*="post-content"]',
-      '[class*="entry-content"]',
+      '.content',
+      '.post-content',
+      '.entry-content',
       '.post-body',
-      '.entry-body'
+      '.article-content',
+      '.story-body',
+      '.post',
+      '.entry',
+      '.content-wrapper',
+      '.post-wrapper',
+      '#content',
+      '#main',
+      '#post-content'
     ];
 
-    for (const selector of contentSelectors) {
+    for (const selector of selectors) {
       const element = document.querySelector(selector);
-      if (element && element.textContent.length > 500) {
+      if (element && element.textContent.trim().length > 100) {
+        console.log(`Main content element found with selector: ${selector}`);
         return element;
       }
     }
 
-    // Fallback to body
-    return document.body;
+    // Fallback: find largest text block
+    const allElements = document.querySelectorAll('div, section, article, main');
+    let largestElement = null;
+    let maxLength = 0;
+    
+    for (const element of allElements) {
+      const text = element.textContent || '';
+      if (text.trim().length > maxLength && text.trim().length > 100) {
+        maxLength = text.trim().length;
+        largestElement = element;
+      }
+    }
+    
+    const finalElement = largestElement || document.body;
+    console.log(`Using fallback content element, found ${maxLength} characters`);
+    return finalElement;
+  }
+
+  function getMainContent() {
+    const element = getMainContentElement();
+    
+    // Remove unwanted elements before extracting text
+    const unwantedSelectors = [
+      'script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside',
+      '.advertisement', '.ads', '.ad', '.adsense', '.sidebar', '.menu',
+      '.navigation', '.nav', '.comments', '.comment', '.related', '.share',
+      '.social', '.footer', '.header', '.banner', '.cookie-banner'
+    ];
+
+    const clone = element.cloneNode(true);
+    unwantedSelectors.forEach(selector => {
+      const elements = clone.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    });
+
+    const text = clone.textContent || clone.innerText || '';
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+    
+    return {
+      text: cleanText,
+      wordCount: cleanText.split(/\s+/).filter(word => word.length > 0).length
+    };
+  }
+
+  function extractAuthor() {
+    const authorSelectors = [
+      'meta[name="author"]',
+      'meta[property="article:author"]',
+      'meta[name="article:author"]',
+      '.author',
+      '.byline',
+      '.post-author',
+      '.entry-author',
+      '.writer',
+      '[rel="author"]',
+      '.attribution',
+      '.credit'
+    ];
+
+    for (const selector of authorSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const author = element.getAttribute('content') || element.textContent;
+        if (author && author.trim().length > 0) {
+          return author.trim();
+        }
+      }
+    }
+
+    return null;
   }
 
   // Enhanced message sending with retry
@@ -205,11 +282,18 @@
       if (blogInfo.isBlog) {
         console.log('Blog Link Analyzer: Blog post detected', blogInfo);
         
+        // Get main content element and extracted text
+        const mainContentElement = getMainContentElement();
+        const extractedContent = getMainContent();
+        
         // Store blog info for other scripts with initialization flag
         window.blogLinkAnalyzerData = {
           isBlog: true,
           blogInfo: blogInfo,
-          mainContent: getMainContent(),
+          mainContentElement: mainContentElement, // DOM element for link extraction
+          mainContent: extractedContent, // Text data for summarization
+          pageContent: extractedContent.text, // For current page summarization
+          pageAuthor: extractedContent.author, // For current page summarization
           detectionComplete: true,
           detectionTimestamp: Date.now()
         };
@@ -244,6 +328,34 @@
         criticalError: true
       };
     }
+  }
+
+  // Handle messages from popup for content extraction
+  if (typeof chrome !== 'undefined' && chrome.runtime) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'EXTRACT_PAGE_CONTENT') {
+        try {
+          const content = getMainContent();
+          const author = extractAuthor();
+          
+          sendResponse({
+            success: true,
+            data: {
+              text: content.text,
+              author: author,
+              wordCount: content.wordCount
+            }
+          });
+        } catch (error) {
+          console.error('Content extraction failed:', error);
+          sendResponse({
+            success: false,
+            error: error.message
+          });
+        }
+        return true; // Keep message channel open for async response
+      }
+    });
   }
 
   // Wait for page to load

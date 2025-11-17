@@ -1,0 +1,458 @@
+// Background Service Worker for Blog Link Analyzer
+(function() {
+  'use strict';
+
+  // Browser compatibility layer - safely get APIs
+  function getChromeAPI() {
+    if (typeof browser !== 'undefined' && browser.runtime) {
+      return browser; // Firefox
+    } else if (typeof chrome !== 'undefined' && chrome.runtime) {
+      return chrome; // Chrome
+    } else {
+      throw new Error('Browser APIs not available');
+    }
+  }
+
+  // Storage keys
+  const STORAGE_KEYS = {
+    BLOG_DATA: 'blogLinkAnalyzer_data',
+    USER_PREFERENCES: 'blogLinkAnalyzer_preferences',
+    CACHE: 'blogLinkAnalyzer_cache'
+  };
+
+  // Initialize storage
+  async function initializeStorage() {
+    try {
+      const api = getChromeAPI();
+      const result = await api.storage.local.get([STORAGE_KEYS.BLOG_DATA]);
+      if (!result[STORAGE_KEYS.BLOG_DATA]) {
+        await api.storage.local.set({
+          [STORAGE_KEYS.BLOG_DATA]: {}
+    });
+  }
+
+  // Fetch external content for summarization (CORS-safe)
+  async function fetchExternalContent(url) {
+    try {
+      console.log('Blog Link Analyzer: Fetching external content:', url);
+      
+      // Validate URL
+      if (!url || typeof url !== 'string') {
+        throw new Error('Invalid URL provided');
+      }
+
+      const urlObj = new URL(url);
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+      }
+
+      // Fetch with proper headers
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Blog Link Analyzer Extension (AI Summarization)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1'
+        },
+        signal: AbortSignal.timeout(15000) // 15 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+      
+      // Parse HTML and extract content
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extract content using same logic as content-fetcher.js
+      const content = extractArticleContentFromHTML(doc, url);
+      
+      // Clean and process content
+      const cleanedContent = cleanContentFromHTML(content.text);
+      
+      return {
+        url: url,
+        title: content.title,
+        author: content.author,
+        publishDate: content.publishDate,
+        text: cleanedContent,
+        excerpt: generateExcerptFromHTML(cleanedContent),
+        wordCount: countWordsFromHTML(cleanedContent),
+        fetchedAt: new Date().toISOString(),
+        success: true
+      };
+
+    } catch (error) {
+      console.error(`Failed to fetch external content from ${url}:`, error);
+      
+      // Provide specific error messages
+      let errorMessage = error.message;
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timeout - page took too long to load';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error - unable to access page';
+      } else if (error.message.includes('HTTP 403')) {
+        errorMessage = 'Access forbidden - page may block automated access';
+      } else if (error.message.includes('HTTP 404')) {
+        errorMessage = 'Page not found - URL may be incorrect';
+      } else if (error.message.includes('CORS')) {
+        errorMessage = 'Access blocked by browser security policy';
+      }
+      
+      return {
+        url: url,
+        error: errorMessage,
+        success: false,
+        fetchedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  // Extract article content from parsed HTML (same logic as content-fetcher.js)
+  function extractArticleContentFromHTML(doc, url) {
+    // Extract title
+    const title = extractTitleFromHTML(doc);
+    
+    // Extract author
+    const author = extractAuthorFromHTML(doc);
+    
+    // Extract publish date
+    const publishDate = extractPublishDateFromHTML(doc);
+    
+    // Extract main content
+    const text = extractMainContentFromHTML(doc);
+    
+    return {
+      title: title,
+      author: author,
+      publishDate: publishDate,
+      text: text
+    };
+  }
+
+  function extractTitleFromHTML(doc) {
+    const selectors = [
+      'meta[property="og:title"]',
+      'meta[name="title"]',
+      'title',
+      'h1',
+      '[class*="title"]'
+    ];
+
+    for (const selector of selectors) {
+      const element = doc.querySelector(selector);
+      if (element) {
+        const title = element.getAttribute('content') || element.textContent;
+        if (title && title.trim().length > 0) {
+          return title.trim();
+        }
+      }
+    }
+
+    return 'Untitled Article';
+  }
+
+  function extractAuthorFromHTML(doc) {
+    const selectors = [
+      'meta[name="author"]',
+      'meta[property="article:author"]',
+      'meta[name="twitter:creator"]',
+      '.author',
+      '.byline',
+      '.post-author',
+      '.entry-author',
+      '.writer',
+      '[rel="author"]',
+      '.attribution',
+      '.credit'
+    ];
+
+    for (const selector of selectors) {
+      const element = doc.querySelector(selector);
+      if (element) {
+        const author = element.getAttribute('content') || element.textContent;
+        if (author && author.trim().length > 0) {
+          return author.trim();
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function extractPublishDateFromHTML(doc) {
+    const selectors = [
+      'meta[property="article:published_time"]',
+      'meta[name="publish_date"]',
+      'meta[name="date"]',
+      'time[datetime]',
+      '.publish-date',
+      '.post-date',
+      '.entry-date',
+      '.date',
+      '[class*="date"]'
+    ];
+
+    for (const selector of selectors) {
+      const element = doc.querySelector(selector);
+      if (element) {
+        const dateStr = element.getAttribute('content') || 
+                       element.getAttribute('datetime') || 
+                       element.textContent;
+        
+        if (dateStr) {
+          const date = parseDateFromHTML(dateStr.trim());
+          if (date) {
+            return date;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function extractMainContentFromHTML(doc) {
+    // Remove unwanted elements first
+    const unwantedSelectors = [
+      'script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside',
+      '.advertisement', '.ads', '.ad', '.adsense', '.sidebar', '.menu',
+      '.navigation', '.nav', '.comments', '.comment', '.related', '.share',
+      '.social', '.footer', '.header', '.banner', '.cookie-banner'
+    ];
+
+    unwantedSelectors.forEach(selector => {
+      const elements = doc.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    });
+
+    // Try to find main content using various selectors
+    const contentSelectors = [
+      'article',
+      'main',
+      '[role="main"]',
+      '.content',
+      '.post-content',
+      '.entry-content',
+      '.article-content',
+      '.story-body',
+      '.post',
+      '.entry',
+      '.content-wrapper',
+      '.post-wrapper',
+      '#content',
+      '#main',
+      '#post-content'
+    ];
+
+    let contentElement = null;
+    for (const selector of contentSelectors) {
+      const element = doc.querySelector(selector);
+      if (element && element.textContent.trim().length > 100) {
+        contentElement = element;
+        break;
+      }
+    }
+
+    // Fallback to body if no specific content found
+    if (!contentElement) {
+      contentElement = doc.body;
+    }
+
+    // Extract text content
+    const text = contentElement.textContent || contentElement.innerText || '';
+    return text;
+  }
+
+  function cleanContentFromHTML(content) {
+    if (!content) return '';
+
+    return content
+      // Remove excessive whitespace
+      .replace(/\s+/g, ' ')
+      // Remove newlines and tabs
+      .replace(/[\n\t]/g, ' ')
+      // Remove multiple spaces
+      .replace(/ {2,}/g, ' ')
+      // Trim
+      .trim()
+      // Limit length
+      .substring(0, 50000);
+  }
+
+  function generateExcerptFromHTML(content) {
+    if (!content) return '';
+    return content.substring(0, 200) + (content.length > 200 ? '...' : '');
+  }
+
+  function countWordsFromHTML(content) {
+    if (!content) return 0;
+    return content.split(/\s+/).filter(word => word.length > 0).length;
+  }
+
+  function parseDateFromHTML(dateStr) {
+    try {
+      return new Date(dateStr);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Clean up old data periodically
+  function setupAlarms() {
+    try {
+      const api = getChromeAPI();
+      if (api.alarms) {
+        api.alarms.create('cleanup', { periodInMinutes: 30 });
+        api.alarms.onAlarm.addListener((alarm) => {
+          if (alarm.name === 'cleanup') {
+            cleanupOldData();
+          }
+        });
+        console.log('Blog Link Analyzer: Alarms setup successful');
+      } else {
+        console.log('Blog Link Analyzer: Alarms API not available, skipping alarm setup');
+      }
+    } catch (error) {
+      console.error('Blog Link Analyzer: Failed to setup alarms:', error);
+    }
+  }
+
+  // Initialize on startup
+  function setupStartupListener() {
+    getChromeAPI().runtime.onStartup.addListener(async () => {
+      console.log('Blog Link Analyzer: Service worker started');
+      await initializeStorage();
+      await cleanupOldData();
+    });
+  }
+
+  // Initialize on install
+  function setupInstallListener() {
+    getChromeAPI().runtime.onInstalled.addListener(async (details) => {
+      console.log('Blog Link Analyzer: Extension installed/updated', details);
+      await initializeStorage();
+      
+      if (details.reason === 'install') {
+        // Show welcome message or set default preferences
+        const api = getChromeAPI();
+        await api.storage.local.set({
+          [STORAGE_KEYS.USER_PREFERENCES]: {
+            maxLinks: 50,
+            showExternalLinks: true,
+            autoExpand: false
+          }
+        });
+      }
+    });
+  }
+
+  // Keep-alive mechanism to prevent service worker inactivity
+  let keepAliveInterval;
+  let lastActivityTime = Date.now();
+
+  function startKeepAlive() {
+    console.log('Blog Link Analyzer: Starting keep-alive mechanism');
+    
+    // Clear any existing interval
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+    }
+    
+    // Set up keep-alive interval
+    keepAliveInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - lastActivityTime;
+      
+      console.log('Blog Link Analyzer: Keep-alive check:', {
+        timeSinceLastActivity: timeSinceLastActivity + 'ms',
+        lastActivity: new Date(lastActivityTime).toISOString()
+      });
+      
+      // Update last activity time to keep service worker alive
+      lastActivityTime = now;
+      
+      // Optionally perform a lightweight storage operation to maintain activity
+      try {
+        const api = getChromeAPI();
+        api.storage.local.get(['keepAlive']).catch(() => {
+          // Ignore errors, this is just to maintain activity
+        });
+      } catch (error) {
+        // Ignore errors
+      }
+    }, 20000); // Every 20 seconds
+  }
+
+  function updateActivity() {
+    lastActivityTime = Date.now();
+    console.log('Blog Link Analyzer: Activity updated:', new Date(lastActivityTime).toISOString());
+  }
+
+  // Main initialization function
+  function initializeServiceWorker() {
+    try {
+      console.log('Blog Link Analyzer: Initializing service worker...');
+      
+      // Check if APIs are available before setting up listeners
+      if (typeof chrome === 'undefined' && typeof browser === 'undefined') {
+        console.error('Blog Link Analyzer: Browser APIs not available during initialization');
+        return;
+      }
+      
+      // Setup all event listeners with error handling
+      try {
+        setupMessageListener();
+        console.log('Blog Link Analyzer: Message listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup message listener:', error);
+      }
+      
+      try {
+        setupTabListeners();
+        console.log('Blog Link Analyzer: Tab listeners setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup tab listeners:', error);
+      }
+      
+      try {
+        setupAlarms();
+        console.log('Blog Link Analyzer: Alarms setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup alarms:', error);
+      }
+      
+      try {
+        setupStartupListener();
+        console.log('Blog Link Analyzer: Startup listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup startup listener:', error);
+      }
+      
+      try {
+        setupInstallListener();
+        console.log('Blog Link Analyzer: Install listener setup complete');
+      } catch (error) {
+        console.error('Blog Link Analyzer: Failed to setup install listener:', error);
+      }
+      
+      // Start keep-alive mechanism
+      startKeepAlive();
+      
+      console.log('Blog Link Analyzer: Service worker initialized successfully');
+    } catch (error) {
+      console.error('Blog Link Analyzer: Service worker initialization failed:', error);
+    }
+  }
+
+  // Initialize when the script loads
+  initializeServiceWorker();
+
+})();

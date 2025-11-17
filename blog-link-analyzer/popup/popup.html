@@ -35,6 +35,16 @@
       </div>
     </header>
 
+    <!-- AI Status Banner -->
+    <div id="ai-status-banner" class="ai-status-banner" style="display: none;">
+      <div class="banner-content">
+        <span class="banner-icon" id="banner-icon">⚠️</span>
+        <span class="banner-message" id="banner-message">AI features not configured</span>
+        <button class="banner-action" id="banner-action">Configure</button>
+        <button class="banner-close" id="banner-close" title="Dismiss">✕</button>
+      </div>
+    </div>
+
     <main class="popup-content">
       <!-- Search/Filter Section -->
       <section class="search-section" id="search-section">
@@ -57,6 +67,10 @@
             <input type="checkbox" id="show-extracted-only">
             <span>With metadata</span>
           </label>
+          <button id="summarize-current-page" class="filter-summary-button" style="display: none;">
+            <span class="icon">🤖</span>
+            <span>Summarize Current Page</span>
+          </button>
         </div>
       </section>
 
@@ -138,6 +152,134 @@
     </footer>
   </div>
 
+  <!-- AI Settings Modal -->
+  <div id="ai-settings-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>AI Summarization Settings</h3>
+        <button class="modal-close" id="close-settings">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Provider Selection -->
+        <div class="form-group">
+          <label for="ai-provider">AI Provider</label>
+          <select id="ai-provider" class="form-control">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="ollama">Ollama (Local)</option>
+            <option value="custom">Custom API</option>
+          </select>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="form-group">
+          <label for="ai-model">Model</label>
+          <div class="model-selection">
+            <select id="ai-model" class="form-control">
+              <option value="">Select a model...</option>
+            </select>
+            <div class="custom-model-input" id="custom-model-group" style="display: none;">
+              <input type="text" id="custom-model" class="form-control" placeholder="Enter custom model name">
+              <label class="checkbox-label">
+                <input type="checkbox" id="use-custom-model">
+                <span>Use custom model</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Key (for providers that require it) -->
+        <div class="form-group" id="api-key-group">
+          <label for="api-key">API Key</label>
+          <input type="password" id="api-key" class="form-control" placeholder="Enter your API key">
+          <button type="button" id="toggle-api-key" class="toggle-password">👁️</button>
+        </div>
+
+        <!-- Custom Endpoint (for custom provider) -->
+        <div class="form-group" id="custom-endpoint-group" style="display: none;">
+          <label for="custom-endpoint">API Endpoint</label>
+          <input type="url" id="custom-endpoint" class="form-control" placeholder="https://api.example.com/v1/chat/completions">
+        </div>
+
+        <!-- Advanced Settings -->
+        <div class="form-group">
+          <label for="max-tokens">Max Summary Length</label>
+          <input type="range" id="max-tokens" class="form-control" min="100" max="1000" value="500">
+          <span class="range-value">500 tokens</span>
+        </div>
+
+        <div class="form-group">
+          <label for="temperature">Temperature (Creativity)</label>
+          <input type="range" id="temperature" class="form-control" min="0" max="1" step="0.1" value="0.3">
+          <span class="range-value">0.3</span>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="cache-summaries" checked>
+            <span>Cache summaries for faster access</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-summarize">
+            <span>Auto-summarize when opening links</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="max-depth">Maximum Nesting Depth</label>
+          <div class="depth-control">
+            <input type="range" id="max-depth" class="form-control" min="5" max="100" value="25">
+            <span class="range-value">25 levels</span>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="no-depth-limit">
+            <span>No depth limit (may impact performance)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="test-connection" class="button button-secondary">Test Connection</button>
+        <button id="save-settings" class="button button-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Display Modal -->
+  <div id="summary-modal" class="modal" style="display: none;">
+    <div class="modal-content summary-modal">
+      <div class="modal-header">
+        <h3>Article Summary</h3>
+        <button class="modal-close" id="close-summary">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="summary-info">
+          <h4 id="summary-title"></h4>
+          <p id="summary-meta"></p>
+        </div>
+        
+        <div class="summary-text" id="summary-text">
+          <div class="summary-loading">
+            <div class="loading-spinner"></div>
+            <p>Generating summary...</p>
+          </div>
+        </div>
+        
+        <div class="summary-actions">
+          <button id="copy-summary" class="button button-secondary">📋 Copy Summary</button>
+          <button id="regenerate-summary" class="button button-secondary">🔄 Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
   <!-- Template for blog link items -->
   <template id="blog-link-template">
     <div class="blog-link-item" data-confidence="0">
@@ -151,6 +293,9 @@
           </div>
         </div>
         <div class="link-actions">
+          <button class="summarize-button" title="Summarize with AI">
+            <span class="summarize-icon">🤖</span>
+          </button>
           <button class="expand-button" title="Show nested links">
             <span class="expand-icon">▶</span>
           </button>
@@ -162,9 +307,13 @@
       <div class="nested-links" style="display: none;">
         <div class="nested-loading">Loading nested links...</div>
       </div>
+
     </div>
   </template>
 
+  <script src="../utils/ai-service.js"></script>
+  <script src="../utils/storage-manager.js"></script>
+  <script src="../utils/content-fetcher.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

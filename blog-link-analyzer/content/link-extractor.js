@@ -112,7 +112,7 @@
         return [];
       }
 
-      const mainContent = window.blogLinkAnalyzerData.mainContent || document.body;
+      const mainContent = window.blogLinkAnalyzerData.mainContentElement || document.body;
       const links = mainContent.querySelectorAll('a[href]');
       const blogLinks = [];
 
