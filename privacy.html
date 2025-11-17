@@ -37,6 +37,10 @@
       color: #343a40;
       margin-top: 25px;
     }
+    h4 {
+      color: #495057;
+      margin-top: 20px;
+    }
     p {
       margin-bottom: 15px;
     }
@@ -48,25 +52,7 @@
       margin-bottom: 8px;
     }
     strong {
-      color: #495057;
-    }
-    em {
-      color: #6c757d;
-      font-style: italic;
-    }
-    .highlight {
-      background-color: #f8f9fa;
-      border-left: 4px solid #007bff;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 4px;
-    }
-    .last-updated {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e9ecef;
-      font-size: 0.9em;
-      color: #6c757d;
+      color: #2c3e50;
     }
     a {
       color: #007bff;
@@ -75,28 +61,25 @@
     a:hover {
       text-decoration: underline;
     }
-    pre {
+    .highlight {
       background-color: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 4px;
       padding: 15px;
-      overflow-x: auto;
-      font-size: 0.9em;
+      border-radius: 5px;
+      border-left: 4px solid #007bff;
+      margin-bottom: 20px;
     }
-    @media (max-width: 600px) {
-      body {
-        padding: 10px;
-      }
-      .container {
-        padding: 20px;
-      }
+    .last-updated {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
+      font-style: italic;
+      color: #6c757d;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Privacy Policy for Blog Link Analyzer Extension</h1>
-    
     <div class="highlight">
       <strong>Last Updated:</strong> January 16, 2025<br>
       <strong>Effective Date:</strong> January 16, 2025
@@ -106,25 +89,24 @@
     <p>This Privacy Policy explains how the Blog Link Analyzer browser extension ("the Extension") collects, uses, and protects your information when you use our service.</p>
 
     <h2>Information We Collect</h2>
-
+    
     <h3>1. Automatically Collected Information</h3>
-
+    
     <h4>Blog Content Analysis</h4>
     <ul>
       <li>The Extension analyzes web pages you visit to detect blog posts and extract links to other blog posts</li>
       <li>Page content is processed locally in your browser to identify blog posts and extract metadata (titles, authors)</li>
       <li>No page content is sent to external servers unless you explicitly use AI features</li>
     </ul>
-
+    
     <h4>Extension Usage Data</h4>
     <ul>
       <li>Local storage of extension settings and preferences</li>
       <li>Cached blog post metadata for performance optimization</li>
       <li>AI configuration settings (if enabled)</li>
     </ul>
-
+    
     <h3>2. AI Feature Data (Optional)</h3>
-
     <p>When you enable AI summarization features:</p>
     <ul>
       <li>Blog post content may be sent to AI service providers (OpenAI, Anthropic, Ollama, or custom endpoints) based on your configuration</li>
@@ -133,7 +115,7 @@
     </ul>
 
     <h2>How We Use Your Information</h2>
-
+    
     <h3>Primary Uses</h3>
     <ul>
       <li><strong>Blog Detection:</strong> Identify blog posts on web pages you visit</li>
@@ -141,7 +123,7 @@
       <li><strong>AI Summarization:</strong> Generate summaries of blog content (when explicitly requested)</li>
       <li><strong>Performance:</strong> Cache data to improve extension performance</li>
     </ul>
-
+    
     <h3>No Third-Party Sharing</h3>
     <ul>
       <li>We do not sell, rent, or share your data with third parties for marketing purposes</li>
@@ -149,21 +131,21 @@
     </ul>
 
     <h2>Data Storage and Security</h2>
-
+    
     <h3>Local Storage</h3>
     <ul>
       <li>All extension data is stored locally using browser storage APIs</li>
       <li>Data includes: settings, preferences, cached blog metadata, and AI configuration</li>
       <li>You can clear all extension data through browser settings or extension options</li>
     </ul>
-
+    
     <h3>AI API Keys</h3>
     <ul>
       <li>API keys are stored locally and encrypted where browser support is available</li>
       <li>Keys are sent directly to your chosen AI provider; we never intercept or store them</li>
       <li>You are responsible for securing your API keys</li>
     </ul>
-
+    
     <h3>Data Retention</h3>
     <ul>
       <li>Extension data is stored until you clear it or uninstall the extension</li>
@@ -172,14 +154,14 @@
     </ul>
 
     <h2>Your Rights and Choices</h2>
-
+    
     <h3>Control Over Your Data</h3>
     <ul>
       <li><strong>Disable AI Features:</strong> Turn off AI summarization in extension settings</li>
       <li><strong>Clear Data:</strong> Clear cached data and settings through extension options</li>
       <li><strong>Uninstall:</strong> Remove the extension completely to delete all stored data</li>
     </ul>
-
+    
     <h3>Transparency</h3>
     <ul>
       <li>All data processing happens locally unless AI features are used</li>
@@ -188,9 +170,7 @@
     </ul>
 
     <h2>AI Service Providers</h2>
-
     <p>When you use AI features, your chosen provider's privacy policy applies:</p>
-
     <ul>
       <li><strong>OpenAI:</strong> <a href="https://openai.com/policies/privacy-policy" target="_blank">https://openai.com/policies/privacy-policy</a></li>
       <li><strong>Anthropic:</strong> <a href="https://www.anthropic.com/privacy" target="_blank">https://www.anthropic.com/privacy</a></li>
@@ -199,15 +179,12 @@
     </ul>
 
     <h2>Children's Privacy</h2>
-
     <p>The Extension is not directed to children under 13. We do not knowingly collect information from children under 13.</p>
 
     <h2>International Data Transfers</h2>
-
     <p>When you use AI features, data may be transferred to countries where your chosen AI provider operates. By enabling AI features, you consent to such transfers.</p>
 
     <h2>Changes to This Privacy Policy</h2>
-
     <p>We may update this Privacy Policy from time to time. We will notify you of any changes by:</p>
     <ul>
       <li>Updating the "Last Updated" date at the top of this policy</li>
@@ -216,16 +193,13 @@
     </ul>
 
     <h2>Contact Information</h2>
-
     <p>If you have questions about this Privacy Policy or our data practices:</p>
-
     <ul>
-      <li><strong>GitHub Issues:</strong> <a href="https://github.com/your-repo/blog-link-analyzer/issues" target="_blank">https://github.com/your-repo/blog-link-analyzer/issues</a></li>
+      <li><strong>GitHub Issues:</strong> <a href="https://github.com/codingnooob/blogbranch/issues" target="_blank">https://github.com/codingnooob/blogbranch/issues</a></li>
       <li><strong>Email:</strong> blog-link-analyzer@example.com</li>
     </ul>
 
     <h2>Compliance</h2>
-
     <p>This Privacy Policy is designed to comply with:</p>
     <ul>
       <li><strong>General Data Protection Regulation (GDPR)</strong></li>
@@ -238,29 +212,5 @@
       <p><strong>Summary:</strong> The Blog Link Analyzer processes blog content locally in your browser. Only when you explicitly enable AI features does content get sent to external providers. All data is stored locally and under your control.</p>
     </div>
   </div>
-
-  <script>
-    // Load and display the privacy policy content
-    fetch('./PRIVACY.md')
-      .then(response => response.text())
-      .then(content => {
-        // Convert markdown to basic HTML for display
-        const htmlContent = content
-          .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-          .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-          .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em>$1</em>')
-          .replace(/^- (.+)$/gm, '<li>$1</li>')
-          .replace(/^\d+\. /gm, '<li>$1</li>')
-          .replace(/\n\n/g, '</li><li>')
-          .replace(/\n/g, '<br>');
-        
-        document.body.innerHTML = `<div class="container">${htmlContent}</div>`;
-      })
-      .catch(error => {
-        document.body.innerHTML = '<div class="container"><h1>Error Loading Privacy Policy</h1><p>Please try refreshing the page or contact us directly.</p></div>';
-      });
-  </script>
 </body>
 </html>
