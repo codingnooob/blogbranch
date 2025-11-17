@@ -109,7 +109,7 @@ We love hearing your ideas! When suggesting features:
 If you discover a security vulnerability, please:
 
 1. **Do not** report it publicly
-2. **Email us directly**: security@blog-link-analyzer.example.com
+2. **Email us directly**: codingnooob3@gmail.com
 3. **Include details**:
    - Nature of the vulnerability
    - Steps to reproduce
@@ -182,7 +182,7 @@ Want to help improve the extension?
 
 For urgent matters affecting many users:
 
-- **Emergency Email**: emergency@blog-link-analyzer.example.com
+- **Emergency Email**: codingnooob3@gmail.com
 - **When to use**: Security vulnerabilities, widespread outages
 - **Response time**: Within 4 hours during business hours
 
@@ -219,14 +219,14 @@ A: Keys are stored locally and encrypted. We never see or store your keys.
 
 ### Partnerships & Press
 
-- **Email**: business@blog-link-analyzer.example.com
+- **Email**: codingnooob3@gmail.com
 - **Topics**: Partnerships, press, enterprise features
 
 ### Enterprise Support
 
 For organizations needing custom features or support:
 
-- **Email**: enterprise@blog-link-analyzer.example.com
+- **Email**: codingnooob3@gmail.com
 - **Features**: Custom deployment, priority support, SLA
 
 ---
