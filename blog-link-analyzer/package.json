@@ -16,6 +16,7 @@
     "package:chrome": "npm run build && node scripts/package-chrome.js",
     "package:firefox": "npm run build:firefox && node scripts/package-firefox.js",
     "package:all": "npm run package:chrome && npm run package:firefox",
+    "build:firefox": "node scripts/build-firefox.js",
     "icons": "node scripts/generate-icons.js",
     "clean": "rimraf dist/ *.zip",
     "dev": "npm run watch",

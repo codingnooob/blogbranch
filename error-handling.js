@@ -1,0 +1,438 @@
+// Error handling and edge case management utilities
+(function() {
+  'use strict';
+
+  // Error types
+  const ErrorTypes = {
+    NETWORK_ERROR: 'network_error',
+    PARSE_ERROR: 'parse_error',
+    PERMISSION_ERROR: 'permission_error',
+    TIMEOUT_ERROR: 'timeout_error',
+    VALIDATION_ERROR: 'validation_error',
+    STORAGE_ERROR: 'storage_error',
+    CONTENT_SCRIPT_ERROR: 'content_script_error'
+  };
+
+  // Custom error class
+  class ExtensionError extends Error {
+    constructor(message, type, details = {}) {
+      super(message);
+      this.name = 'ExtensionError';
+      this.type = type;
+      this.details = details;
+      this.timestamp = Date.now();
+    }
+  }
+
+  // Error handler utility
+  class ErrorHandler {
+    constructor() {
+      this.errorLog = [];
+      this.maxLogSize = 100;
+    }
+
+    // Log error
+    logError(error, context = {}) {
+      const errorEntry = {
+        error: error instanceof Error ? {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          type: error.type || ErrorTypes.VALIDATION_ERROR,
+          details: error.details || {}
+        } : error,
+        context: context,
+        timestamp: Date.now(),
+        userAgent: navigator.userAgent,
+        url: window.location?.href || 'unknown'
+      };
+
+      this.errorLog.push(errorEntry);
+      
+      // Trim log if it gets too large
+      if (this.errorLog.length > this.maxLogSize) {
+        this.errorLog = this.errorLog.slice(-this.maxLogSize);
+      }
+
+      console.error('Blog Link Analyzer Error:', errorEntry);
+    }
+
+    // Get recent errors
+    getRecentErrors(count = 10) {
+      return this.errorLog.slice(-count);
+    }
+
+    // Clear error log
+    clearLog() {
+      this.errorLog = [];
+    }
+
+    // Handle network errors
+    handleNetworkError(error, url) {
+      const extensionError = new ExtensionError(
+        `Network error accessing ${url}: ${error.message}`,
+        ErrorTypes.NETWORK_ERROR,
+        { url, originalError: error }
+      );
+      this.logError(extensionError, { action: 'network_request' });
+      return extensionError;
+    }
+
+    // Handle parse errors
+    handleParseError(error, content, source) {
+      const extensionError = new ExtensionError(
+        `Parse error in ${source}: ${error.message}`,
+        ErrorTypes.PARSE_ERROR,
+        { content: content.substring(0, 200), source }
+      );
+      this.logError(extensionError, { action: 'parsing' });
+      return extensionError;
+    }
+
+    // Handle timeout errors
+    handleTimeoutError(operation, timeout) {
+      const extensionError = new ExtensionError(
+        `Operation "${operation}" timed out after ${timeout}ms`,
+        ErrorTypes.TIMEOUT_ERROR,
+        { operation, timeout }
+      );
+      this.logError(extensionError, { action: 'timeout' });
+      return extensionError;
+    }
+
+    // Handle validation errors
+    handleValidationError(message, data) {
+      const extensionError = new ExtensionError(
+        `Validation error: ${message}`,
+        ErrorTypes.VALIDATION_ERROR,
+        { data }
+      );
+      this.logError(extensionError, { action: 'validation' });
+      return extensionError;
+    }
+
+    // Handle storage errors
+    handleStorageError(error, operation, key) {
+      const extensionError = new ExtensionError(
+        `Storage error during ${operation} on ${key}: ${error.message}`,
+        ErrorTypes.STORAGE_ERROR,
+        { operation, key }
+      );
+      this.logError(extensionError, { action: 'storage' });
+      return extensionError;
+    }
+  }
+
+  // Input validation utilities
+  class Validator {
+    // Validate URL
+    static isValidUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      
+      try {
+        const urlObj = new URL(url);
+        return ['http:', 'https:'].includes(urlObj.protocol);
+      } catch {
+        return false;
+      }
+    }
+
+    // Validate API key
+    static isValidApiKey(key) {
+      if (!key || typeof key !== 'string') return false;
+      
+      // Basic key format validation
+      const keyPatterns = {
+        openai: /^sk-[A-Za-z0-9]{48}$/,
+        anthropic: /^sk-ant-api03-[A-Za-z0-9_-]{95}$/,
+        custom: /^[A-Za-z0-9_-]{16,}$/
+      };
+      
+      // Check against known patterns or allow custom keys
+      return Object.values(keyPatterns).some(pattern => pattern.test(key)) || 
+             (key.length >= 10 && /^[A-Za-z0-9_-]+$/.test(key));
+    }
+
+    // Validate content length
+    static isValidContentLength(content, maxLength = 100000) {
+      if (!content || typeof content !== 'string') return false;
+      return content.length > 0 && content.length <= maxLength;
+    }
+
+    // Validate AI configuration
+    static isValidAiConfig(config) {
+      if (!config || typeof config !== 'object') return false;
+      
+      const requiredFields = ['provider'];
+      if (!requiredFields.every(field => config[field])) return false;
+      
+      // Provider-specific validation
+      switch (config.provider) {
+        case 'openai':
+        case 'anthropic':
+          return this.isValidApiKey(config.apiKey);
+        case 'ollama':
+          return config.ollamaUrl && this.isValidUrl(config.ollamaUrl);
+        case 'custom':
+          return this.isValidApiKey(config.apiKey) && 
+                 config.customUrl && 
+                 this.isValidUrl(config.customUrl);
+        default:
+          return false;
+      }
+    }
+
+    // Validate API response
+    static isValidApiResponse(response, provider) {
+      if (!response || typeof response !== 'object') return false;
+      
+      switch (provider) {
+        case 'openai':
+          return !!(response.choices && Array.isArray(response.choices) && 
+                 response.choices.length > 0 && 
+                 response.choices[0].message && 
+                 response.choices[0].message.content);
+        case 'anthropic':
+          return !!(response.content && Array.isArray(response.content) && 
+                 response.content.length > 0 && 
+                 response.content[0].text);
+        case 'ollama':
+          return !!(response.response && typeof response.response === 'string');
+        default:
+          return false;
+      }
+    }
+
+    // Validate blog link data
+    static validateBlogLink(link) {
+      const errors = [];
+
+      if (!link.href || !Validator.isValidUrl(link.href)) {
+        errors.push('Invalid or missing href');
+      }
+
+      if (!link.text || typeof link.text !== 'string' || link.text.trim().length === 0) {
+        errors.push('Invalid or missing text');
+      }
+
+      if (link.confidence !== undefined && (typeof link.confidence !== 'number' || link.confidence < 0 || link.confidence > 1)) {
+        errors.push('Invalid confidence value');
+      }
+
+      return {
+        isValid: errors.length === 0,
+        errors: errors
+      };
+    }
+
+    // Validate blog data
+    static validateBlogData(data) {
+      const errors = [];
+
+      if (!data || typeof data !== 'object') {
+        errors.push('Invalid data object');
+        return { isValid: false, errors };
+      }
+
+      if (data.blogLinks && !Array.isArray(data.blogLinks)) {
+        errors.push('blogLinks must be an array');
+      }
+
+      if (data.blogLinks) {
+        data.blogLinks.forEach((link, index) => {
+          const linkValidation = Validator.validateBlogLink(link);
+          if (!linkValidation.isValid) {
+            errors.push(`Invalid blog link at index ${index}: ${linkValidation.errors.join(', ')}`);
+          }
+        });
+      }
+
+      return {
+        isValid: errors.length === 0,
+        errors: errors
+      };
+    }
+
+    // Sanitize text
+    static sanitizeText(text, maxLength = 10000) {
+      if (typeof text !== 'string') return '';
+      
+      // Remove script tags and their content first
+      let sanitized = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      
+      // Remove HTML tags
+      sanitized = sanitized.replace(/<[^>]*>/g, '');
+      
+      // Normalize whitespace
+      sanitized = sanitized.replace(/\s+/g, ' ').trim();
+      
+      // Limit length and add ellipsis if truncated
+      if (sanitized.length > maxLength) {
+        sanitized = sanitized.substring(0, maxLength - 3) + '...';
+      }
+      
+      return sanitized;
+    }
+
+    // Sanitize URL
+    static sanitizeUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      try {
+        const urlObj = new URL(url, window.location.href);
+        return urlObj.href;
+      } catch {
+        return '';
+      }
+    }
+
+    // Sanitize HTML content - removes all HTML tags and returns plain text
+    static sanitizeHtml(html) {
+      if (typeof html !== 'string') return '';
+      
+      // Use DOMParser for safer HTML parsing
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        return doc.body.textContent || doc.body.innerText || '';
+      } catch {
+        // Fallback: treat as plain text and escape HTML entities
+        return this.escapeHtml(html);
+      }
+    }
+
+    // Escape HTML to prevent XSS
+    static escapeHtml(text) {
+      if (typeof text !== 'string') return '';
+      
+      // Manual HTML escaping to avoid innerHTML
+      const htmlEscapes = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;'
+      };
+      
+      return text.replace(/[&<>"'\/]/g, char => htmlEscapes[char]);
+    }
+  }
+
+  // Retry utility
+  class RetryHandler {
+    static async withRetry(operation, maxRetries = 3, delay = 1000, backoff = 2) {
+      let lastError;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          return await operation();
+        } catch (error) {
+          lastError = error;
+          
+          if (attempt === maxRetries) {
+            throw error;
+          }
+
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, delay * Math.pow(backoff, attempt - 1)));
+        }
+      }
+
+      throw lastError;
+    }
+  }
+
+  // Timeout utility
+  class TimeoutHandler {
+    static withTimeout(promise, timeoutMs) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new ExtensionError(
+              `Operation timed out after ${timeoutMs}ms`,
+              ErrorTypes.TIMEOUT_ERROR,
+              { timeout: timeoutMs }
+            ));
+          }, timeoutMs);
+        })
+      ]);
+    }
+  }
+
+  // Performance monitor
+  class PerformanceMonitor {
+    constructor() {
+      this.metrics = {};
+    }
+
+    // Start timing an operation
+    start(operation) {
+      this.metrics[operation] = {
+        startTime: performance.now(),
+        endTime: null,
+        duration: null
+      };
+    }
+
+    // End timing an operation
+    end(operation) {
+      if (this.metrics[operation]) {
+        this.metrics[operation].endTime = performance.now();
+        this.metrics[operation].duration = 
+          this.metrics[operation].endTime - this.metrics[operation].startTime;
+      }
+    }
+
+    // Get metrics
+    getMetrics() {
+      return this.metrics;
+    }
+
+    // Clear metrics
+    clear() {
+      this.metrics = {};
+    }
+  }
+
+  // Create global instances
+  const errorHandler = new ErrorHandler();
+  const performanceMonitor = new PerformanceMonitor();
+
+  // Export utilities
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      ErrorTypes,
+      ExtensionError,
+      ErrorHandler,
+      Validator,
+      RetryHandler,
+      TimeoutHandler,
+      PerformanceMonitor,
+      errorHandler,
+      performanceMonitor,
+      // Add direct exports for tests with expected names
+      validateInput: {
+        apiKey: Validator.isValidApiKey.bind(Validator),
+        url: Validator.isValidUrl.bind(Validator),
+        contentLength: Validator.isValidContentLength.bind(Validator),
+        aiConfig: Validator.isValidAiConfig.bind(Validator),
+        apiResponse: (response, provider = 'openai') => Validator.isValidApiResponse(response, provider)
+      },
+      sanitizeContent: Validator.sanitizeText.bind(Validator)
+    };
+  } else {
+    window.BlogLinkAnalyzerUtils = {
+      ErrorTypes,
+      ExtensionError,
+      ErrorHandler,
+      Validator,
+      RetryHandler,
+      TimeoutHandler,
+      PerformanceMonitor,
+      errorHandler,
+      performanceMonitor
+    };
+  }
+
+})();

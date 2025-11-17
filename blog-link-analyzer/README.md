@@ -2,6 +2,10 @@
 
 A Chrome/Firefox extension that detects blog posts and extracts linked blog content with titles and authors, displaying them in an interactive dropdown interface.
 
+## Source URL
+
+https://github.com/codingnooob/blogbranch
+
 ## Features
 
 - **Blog Post Detection**: Automatically detects if the current page is a blog post using URL patterns, content analysis, and meta tags
