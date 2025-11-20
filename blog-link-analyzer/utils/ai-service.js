@@ -26,7 +26,7 @@ class AIService {
         name: 'Ollama (Local)',
         models: [], // Will be populated dynamically
         defaultModel: 'llama2',
-        defaultEndpoint: 'http://localhost:11434/api/generate',
+        defaultEndpoint: 'http://localhost:11434',
         requiresApiKey: false,
         maxTokens: 4000
       },
@@ -178,7 +178,15 @@ Summary:`;
    * Summarize using Ollama (local)
    */
   async summarizeWithOllama(prompt, model, endpoint, maxTokens) {
-    const response = await fetch(endpoint, {
+    // For Ollama, append /api/generate to endpoint if not already present
+    let generateUrl;
+    if (endpoint.includes('/api/generate')) {
+      generateUrl = endpoint;
+    } else {
+      generateUrl = endpoint.endsWith('/') ? `${endpoint}api/generate` : `${endpoint}/api/generate`;
+    }
+
+    const response = await fetch(generateUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -294,7 +302,17 @@ Summary:`;
           throw new Error('Invalid Ollama endpoint URL');
         }
 
-        const response = await fetch(`${finalEndpoint}/api/tags`, {
+        // For Ollama, construct the correct API tags URL
+        // If endpoint already includes /api/generate, replace it with /api/tags
+        // Otherwise, just append /api/tags
+        let modelsUrl;
+        if (finalEndpoint.includes('/api/generate')) {
+          modelsUrl = finalEndpoint.replace('/api/generate', '/api/tags');
+        } else {
+          modelsUrl = finalEndpoint.endsWith('/') ? `${finalEndpoint}api/tags` : `${finalEndpoint}/api/tags`;
+        }
+
+        const response = await fetch(modelsUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
