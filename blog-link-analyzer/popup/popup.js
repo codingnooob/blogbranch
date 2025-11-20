@@ -1569,7 +1569,13 @@
         troubleshooting = 'Check your internet connection and try again.';
       } else if (error.message.includes('timeout')) {
         userMessage = 'Request timed out';
-        troubleshooting = 'The AI service is responding slowly. Try again.';
+        troubleshooting = 'The page or AI service is responding slowly. Try again.';
+      } else if (error.message.includes('Content Security Policy') || error.message.includes('connect-src')) {
+        userMessage = 'Content Security Policy violation';
+        troubleshooting = 'The extension may need to be reloaded or permissions updated. Try reloading the extension.';
+      } else if (error.message.includes('browser security policy')) {
+        userMessage = 'Access blocked by browser security';
+        troubleshooting = 'This may be due to extension permissions. Try reloading the extension or checking permissions.';
       }
       
       // Show error in modal

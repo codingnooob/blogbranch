@@ -694,8 +694,10 @@
         errorMessage = 'Access forbidden - page may block automated access';
       } else if (error.message.includes('HTTP 404')) {
         errorMessage = 'Page not found - URL may be incorrect';
-      } else if (error.message.includes('CORS')) {
-        errorMessage = 'Access blocked by browser security policy';
+      } else if (error.message.includes('CORS') || error.message.includes('Content Security Policy')) {
+        errorMessage = 'Access blocked by browser security policy - extension permissions may need to be updated';
+      } else if (error.message.includes('connect-src')) {
+        errorMessage = 'Content Security Policy violation - external domain not allowed';
       }
       
       return {
