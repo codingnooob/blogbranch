@@ -286,12 +286,15 @@ Summary:`;
     // For Ollama, fetch available models dynamically
     if (provider === 'ollama') {
       try {
+        // Use provider's default endpoint if none provided
+        const finalEndpoint = endpoint || providerConfig.defaultEndpoint;
+        
         // Check if endpoint is accessible
-        if (!endpoint || (!endpoint.startsWith('http://') && !endpoint.startsWith('https://'))) {
+        if (!finalEndpoint || (!finalEndpoint.startsWith('http://') && !finalEndpoint.startsWith('https://'))) {
           throw new Error('Invalid Ollama endpoint URL');
         }
 
-        const response = await fetch(`${endpoint}/api/tags`, {
+        const response = await fetch(`${finalEndpoint}/api/tags`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'

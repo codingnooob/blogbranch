@@ -803,7 +803,9 @@
       if (index % 10 === 0) {
         elements.blogLinks.appendChild(fragment);
         // Create new fragment instead of clearing innerHTML
-        fragment.childNodes.length = 0;
+        while (fragment.firstChild) {
+          fragment.removeChild(fragment.firstChild);
+        }
       }
     });
 
@@ -1656,7 +1658,15 @@
 
       // Set custom endpoint
       const endpointInput = document.getElementById('custom-endpoint');
-      if (endpointInput) endpointInput.value = aiSettings.endpoint || '';
+      if (endpointInput) {
+        let endpointValue = aiSettings.endpoint || '';
+        // For Ollama, show default endpoint if none is saved
+        if (!endpointValue && aiSettings.provider === 'ollama') {
+          const providerConfig = aiService?.getProviderConfig('ollama');
+          endpointValue = providerConfig?.defaultEndpoint || '';
+        }
+        endpointInput.value = endpointValue;
+      }
 
       // Set sliders
       const maxTokensSlider = document.getElementById('max-tokens');
@@ -1719,7 +1729,15 @@
     if (!modelSelect || !aiService) return;
 
     try {
-      const models = await aiService.getModels(provider, aiSettings.endpoint);
+      // Use appropriate endpoint for the provider
+      let endpoint = aiSettings.endpoint;
+      if (!endpoint && provider === 'ollama') {
+        // Use Ollama's default endpoint if none is configured
+        const providerConfig = aiService.getProviderConfig(provider);
+        endpoint = providerConfig.defaultEndpoint;
+      }
+      
+      const models = await aiService.getModels(provider, endpoint);
       while (modelSelect.firstChild) {
         modelSelect.removeChild(modelSelect.firstChild);
       }
@@ -1757,12 +1775,13 @@
     const providerConfig = aiService?.getProviderConfig(provider);
     const requiresApiKey = providerConfig?.requiresApiKey;
     const isCustom = provider === 'custom';
+    const isOllama = provider === 'ollama';
 
     if (apiKeyGroup) {
       apiKeyGroup.style.display = requiresApiKey ? 'block' : 'none';
     }
     if (customEndpointGroup) {
-      customEndpointGroup.style.display = isCustom ? 'block' : 'none';
+      customEndpointGroup.style.display = (isCustom || isOllama) ? 'block' : 'none';
     }
   }
 
@@ -1922,7 +1941,15 @@
         testButton.textContent = 'Testing...';
       }
 
-      const result = await aiService.testConnection(provider, apiKey, customEndpoint, finalModel);
+      // Use appropriate endpoint for the provider
+      let testEndpoint = customEndpoint;
+      if (!testEndpoint && provider === 'ollama') {
+        // Use Ollama's default endpoint if none is configured
+        const providerConfig = aiService.getProviderConfig(provider);
+        testEndpoint = providerConfig.defaultEndpoint;
+      }
+      
+      const result = await aiService.testConnection(provider, apiKey, testEndpoint, finalModel);
 
       if (result.success) {
         showToast('Connection test successful!', 'success');
