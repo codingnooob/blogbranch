@@ -286,21 +286,35 @@ Summary:`;
     // For Ollama, fetch available models dynamically
     if (provider === 'ollama') {
       try {
+        // Check if endpoint is accessible
+        if (!endpoint || (!endpoint.startsWith('http://') && !endpoint.startsWith('https://'))) {
+          throw new Error('Invalid Ollama endpoint URL');
+        }
+
         const response = await fetch(`${endpoint}/api/tags`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          signal: AbortSignal.timeout(5000) // 5 second timeout
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch Ollama models: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
+        if (!data.models || !Array.isArray(data.models)) {
+          throw new Error('Invalid response format from Ollama');
+        }
+
         return data.models.map(model => model.name);
       } catch (error) {
-        console.warn('Failed to fetch Ollama models, using defaults:', error);
+        if (error.name === 'AbortError') {
+          console.warn('Ollama models request timed out, using defaults');
+        } else {
+          console.warn('Failed to fetch Ollama models, using defaults:', error.message);
+        }
         return ['llama2', 'mistral', 'codellama'];
       }
     }

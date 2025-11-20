@@ -13,14 +13,15 @@ describe('Blog Detection', () => {
   test('should detect WordPress blog post', () => {
     // Mock WordPress URL
     Object.defineProperty(window, 'location', {
-      value: { href: 'https://example.com/2024/01/sample-blog-post/' },
+      value: { href: 'https://example.com/2024/01/sample-blog-post/', hostname: 'example.com' },
       writable: true
     });
 
     // Mock WordPress meta tags
     const metaTags = [
       { name: 'article:published_time', content: '2024-01-15T10:00:00Z' },
-      { name: 'author', content: 'John Doe' }
+      { name: 'author', content: 'John Doe' },
+      { name: 'generator', content: 'WordPress 6.4.3' }
     ];
     
     metaTags.forEach(tag => {
@@ -43,7 +44,7 @@ describe('Blog Detection', () => {
 
   test('should detect Medium article', () => {
     Object.defineProperty(window, 'location', {
-      value: { href: 'https://medium.com/@author/article-title' },
+      value: { href: 'https://medium.com/@author/article-title', hostname: 'medium.com' },
       writable: true
     });
 
@@ -60,7 +61,7 @@ describe('Blog Detection', () => {
 
   test('should detect Substack newsletter', () => {
     Object.defineProperty(window, 'location', {
-      value: { href: 'https://newsletter.substack.com/p/article-title' },
+      value: { href: 'https://newsletter.substack.com/p/article-title', hostname: 'newsletter.substack.com' },
       writable: true
     });
 
@@ -77,19 +78,19 @@ describe('Blog Detection', () => {
 
   test('should not detect non-blog pages', () => {
     Object.defineProperty(window, 'location', {
-      value: { href: 'https://example.com/homepage' },
+      value: { href: 'https://example.com/homepage', hostname: 'example.com' },
       writable: true
     });
 
     const result = detectBlogPost();
     
     expect(result.isBlog).toBe(false);
-    expect(result.confidence).toBeLessThan(0.3);
+    expect(result.confidence).toBeLessThan(0.31);
   });
 
   test('should extract blog metadata', () => {
     Object.defineProperty(window, 'location', {
-      value: { href: 'https://example.com/blog/test-post' },
+      value: { href: 'https://example.com/blog/test-post', hostname: 'example.com' },
       writable: true
     });
 

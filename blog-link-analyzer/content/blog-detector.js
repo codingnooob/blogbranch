@@ -131,6 +131,7 @@
   // Detect the blog platform
   function detectPlatform() {
     const url = window.location.href;
+    const hostname = window.location.hostname;
     const html = document.documentElement.outerHTML;
 
     // Check hostname first for known platforms

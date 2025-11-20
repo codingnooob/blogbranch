@@ -45,8 +45,6 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.openai.com https://api.anthropic.com http://localhost:11434 https://*.ollama.com;"
   },
-  "homepage": "https://codingnooob.github.io/blogbranch/",
-  "privacy_policy_url": "https://codingnooob.github.io/blogbranch/privacy.html",
   "browser_specific_settings": {
     "gecko": {
       "id": "codingnooob3@gmail.com",

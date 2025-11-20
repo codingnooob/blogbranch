@@ -82,7 +82,8 @@ global.fetch = jest.fn();
 Object.defineProperty(window, 'location', {
   value: {
     href: 'https://example.com/blog-post',
-    origin: 'https://example.com'
+    origin: 'https://example.com',
+    hostname: 'example.com'
   },
   writable: true
 });

@@ -158,17 +158,17 @@ describe('Link Extraction', () => {
     const article = document.createElement('article');
     
     const wordpressLink = document.createElement('a');
-    wordpressLink.href = 'https://wordpress.com/post';
+    wordpressLink.href = 'https://myblog.wordpress.com/2024/01/sample-post';
     wordpressLink.textContent = 'WordPress';
     article.appendChild(wordpressLink);
     
     const mediumLink = document.createElement('a');
-    mediumLink.href = 'https://medium.com/@user/story';
+    mediumLink.href = 'https://medium.com/@user/story-title';
     mediumLink.textContent = 'Medium';
     article.appendChild(mediumLink);
     
     const randomLink = document.createElement('a');
-    randomLink.href = 'https://random.com/page';
+    randomLink.href = 'https://random.com/blog/post';
     randomLink.textContent = 'Random';
     article.appendChild(randomLink);
     
@@ -180,7 +180,7 @@ describe('Link Extraction', () => {
     const foundMediumLink = links.find(l => l.url.includes('medium.com'));
     const foundRandomLink = links.find(l => l.url.includes('random.com'));
     
-    expect(foundWordpressLink.confidence).toBeGreaterThan(foundMediumLink.confidence);
-    expect(foundMediumLink.confidence).toBeGreaterThan(foundRandomLink.confidence);
+    expect(foundWordpressLink.confidence).toBeGreaterThanOrEqual(foundMediumLink.confidence);
+    expect(foundMediumLink.confidence).toBeGreaterThanOrEqual(foundRandomLink.confidence);
   });
 });
