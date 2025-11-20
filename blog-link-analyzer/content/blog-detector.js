@@ -146,8 +146,6 @@
         if (generator && patterns.meta.test(generator.content)) return platform;
       }
     }
-      }
-    }
 
     return null;
   }

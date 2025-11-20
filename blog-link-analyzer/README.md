@@ -17,14 +17,46 @@ A Chrome/Firefox extension that detects blog posts and extracts linked blog cont
 
 ## Installation
 
-### Chrome
+### Official Store Installation (Recommended)
+
+#### Chrome Web Store
+1. Visit the Chrome Web Store (link coming soon)
+2. Click "Add to Chrome"
+3. Grant necessary permissions
+4. Extension will be automatically updated
+
+#### Firefox Add-ons
+1. Visit Firefox Add-ons (link coming soon)
+2. Click "Add to Firefox"
+3. Grant necessary permissions
+4. Extension will be automatically updated
+
+### Self-Hosted Installation
+
+#### Chrome (CRX File)
+1. Download the CRX file from releases
+2. Open Chrome and go to `chrome://extensions/`
+3. Enable "Developer mode" in the top right
+4. Drag and drop the CRX file into the extensions page
+5. Confirm installation when prompted
+
+#### Firefox (XPI File)
+1. Download the XPI file from releases
+2. Open Firefox and go to `about:addons`
+3. Click the gear icon → "Install Add-on From File"
+4. Select the XPI file
+5. Confirm installation when prompted
+
+### Development Installation
+
+#### Chrome
 1. Download or clone this repository
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable "Developer mode" in the top right
 4. Click "Load unpacked" and select the `blog-link-analyzer` directory
 5. The extension should appear in your toolbar
 
-### Firefox
+#### Firefox
 1. Download or clone this repository
 2. Open Firefox and go to `about:debugging`
 3. Click "This Firefox" → "Load Temporary Add-on"
@@ -103,6 +135,71 @@ blog-link-analyzer/
 - **Substack**: Supports newsletter-style blogs
 - **Ghost**: Works with Ghost-powered blogs
 - **Custom Blogs**: Uses generic detection for other platforms
+
+## Building and Packaging
+
+### Available Build Scripts
+
+```bash
+# Development builds
+npm run build:dev          # Development build with source maps
+npm run watch              # Watch mode for development
+
+# Production builds
+npm run build              # Chrome production build
+npm run build:firefox      # Firefox production build
+
+# Package for official stores
+npm run package:chrome     # Chrome ZIP for Chrome Web Store
+npm run package:firefox    # Firefox ZIP for Firefox Add-ons
+npm run package:all        # Both store packages
+
+# Package for self-hosting
+npm run package:chrome:crx # Chrome CRX for direct installation
+npm run package:firefox:xpi # Firefox XPI for direct installation
+npm run package:self-hosted # Both self-hosted packages
+
+# All formats
+npm run package:all-formats # ZIP + CRX + XPI
+
+# Utilities
+npm run clean              # Clean build artifacts
+npm run validate           # Run linting, type checking, and tests
+```
+
+### Package Types
+
+| Format | Browser | Use Case | File Size |
+|--------|----------|-----------|-----------|
+| **ZIP** | Chrome/Firefox | Official Store Submission | ~90KB |
+| **CRX** | Chrome | Self-hosting/Enterprise | ~90KB |
+| **XPI** | Firefox | Self-hosting/Direct Install | ~88KB |
+
+### Private Key Management
+
+When building CRX files for Chrome:
+- A private key (`blog-link-analyzer.pem`) is automatically generated
+- **Keep this key safe!** It's required for extension updates
+- The key is excluded from Git via `.gitignore`
+- Back up the key if you plan to release updates
+
+### Distribution Options
+
+#### Official Store Distribution (Recommended)
+- **Chrome Web Store**: Upload ZIP file via Chrome Developer Dashboard
+- **Firefox Add-ons**: Upload ZIP file via Firefox Developer Hub
+- Benefits: Automatic updates, trusted distribution, user discovery
+
+#### Self-Hosted Distribution
+- **Chrome**: Host CRX file on your server, users install directly
+- **Firefox**: Host XPI file on your server, users install directly
+- Benefits: Full control, no review process, immediate updates
+- Requirements: Manual update management, user trust building
+
+#### Enterprise Distribution
+- **Chrome**: Use CRX with Chrome Enterprise Policies
+- **Firefox**: Use XPI with Firefox Enterprise policies
+- Benefits: Centralized management, pre-approval, security controls
 
 ## Testing
 

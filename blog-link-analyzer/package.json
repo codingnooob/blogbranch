@@ -5,7 +5,7 @@
   "main": "background/service-worker.js",
   "scripts": {
     "build": "webpack --mode=production",
-    "build:firefox": "webpack --mode=production --env firefox=true",
+    "build:firefox": "node scripts/build-firefox.js",
     "build:dev": "webpack --mode=development",
     "watch": "webpack --mode=development --watch",
     "test": "jest",
@@ -15,10 +15,13 @@
     "typecheck": "tsc --noEmit",
     "package:chrome": "npm run build && node scripts/package-chrome.js",
     "package:firefox": "npm run build:firefox && node scripts/package-firefox.js",
+    "package:chrome:crx": "node scripts/package-chrome-crx.js",
+    "package:firefox:xpi": "node scripts/package-firefox-xpi.js",
+    "package:self-hosted": "npm run package:chrome:crx && npm run package:firefox:xpi",
+    "package:all-formats": "npm run package:chrome && npm run package:firefox && npm run package:self-hosted",
     "package:all": "npm run package:chrome && npm run package:firefox",
-    "build:firefox": "node scripts/build-firefox.js",
     "icons": "node scripts/generate-icons.js",
-    "clean": "rimraf dist/ *.zip",
+    "clean": "rimraf dist/ *.zip *.crx *.xpi *.pem temp-*",
     "dev": "npm run watch",
     "validate": "npm run lint && npm run typecheck && npm run test"
   },
@@ -41,6 +44,7 @@
     "@typescript-eslint/parser": "^6.12.0",
     "archiver": "^6.0.1",
     "copy-webpack-plugin": "^11.0.0",
+    "crx": "^5.0.1",
     "css-loader": "^6.8.1",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
@@ -55,6 +59,7 @@
     "style-loader": "^3.3.3",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.2",
+    "web-ext": "^9.1.0",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
@@ -95,7 +100,10 @@
     "transformIgnorePatterns": [
       "node_modules/(?!(puppeteer)/)"
     ],
-    "moduleFileExtensions": ["js", "ts"]
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ]
   },
   "eslintConfig": {
     "env": {
