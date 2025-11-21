@@ -117,7 +117,18 @@
         return [];
       }
 
-      const mainContent = (typeof window !== 'undefined' && window.blogLinkAnalyzerData && window.blogLinkAnalyzerData.mainContentElement) || document.body;
+      // Use CSS selector instead of DOM element to avoid cloning issues
+      let mainContent = document.body;
+      if (typeof window !== 'undefined' && window.blogLinkAnalyzerData && window.blogLinkAnalyzerData.mainContentSelector) {
+        try {
+          const selectedElement = document.querySelector(window.blogLinkAnalyzerData.mainContentSelector);
+          if (selectedElement) {
+            mainContent = selectedElement;
+          }
+        } catch (error) {
+          console.warn('Blog Link Analyzer: Could not find main content element with selector, using body:', error);
+        }
+      }
       const links = mainContent.querySelectorAll('a[href]');
       const blogLinks = [];
 
@@ -149,7 +160,10 @@
               title: link.getAttribute('title') || text, // Add title property
               confidence: confidence,
               isInternal: isInternalLink(href),
-              element: link, // Store reference for potential future use
+              // Remove DOM element reference to prevent cloning issues in Firefox
+              // Store a CSS selector instead if needed to identify the element later
+              elementSelector: `#${link.id || ''}${link.className ? '.' + link.className.split(' ').join('.') : ''}`,
+              tagName: link.tagName,
               extracted: false // Flag to track if we've fetched metadata
             });
           }

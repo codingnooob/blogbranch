@@ -314,10 +314,14 @@
         const extractedContent = getMainContent();
         
         // Store blog info for other scripts with initialization flag
+        // Remove DOM element reference to prevent cloning issues in Firefox
         window.blogLinkAnalyzerData = {
           isBlog: true,
           blogInfo: blogInfo,
-          mainContentElement: mainContentElement, // DOM element for link extraction
+          // Store CSS selector instead of DOM element for link extraction
+          mainContentSelector: mainContentElement.id ? `#${mainContentElement.id}` : 
+                              mainContentElement.className ? `.${mainContentElement.className.split(' ').join('.')}` :
+                              mainContentElement.tagName.toLowerCase(),
           mainContent: extractedContent, // Text data for summarization
           pageContent: extractedContent.text, // For current page summarization
           pageAuthor: extractedContent.author, // For current page summarization
