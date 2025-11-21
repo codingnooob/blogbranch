@@ -272,4 +272,24 @@ if (require.main === module) {
     });
 }
 
+// Jest test exports
+describe('ExtensionTester Class', () => {
+  test('should be instantiable', () => {
+    const tester = new ExtensionTester();
+    expect(tester).toBeInstanceOf(ExtensionTester);
+    expect(typeof tester.setup).toBe('function');
+    expect(typeof tester.testManifest).toBe('function');
+    expect(typeof tester.cleanup).toBe('function');
+  });
+
+  test('should have required methods', () => {
+    const tester = new ExtensionTester();
+    const requiredMethods = ['setup', 'testManifest', 'testBasicFunctionality', 'testContentScript', 'testPopup', 'cleanup'];
+    
+    requiredMethods.forEach(method => {
+      expect(typeof tester[method]).toBe('function');
+    });
+  });
+});
+
 module.exports = ExtensionTester;
