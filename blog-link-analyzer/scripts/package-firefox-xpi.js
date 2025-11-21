@@ -28,7 +28,7 @@ class XPIGenerator {
     const firefoxManifest = {
       manifest_version: 2,
       name: "Blog Link Analyzer",
-      version: "1.0.0",
+      version: this.version,
       description: "Detects blog posts and extracts linked blog content with titles and authors",
       permissions: [
         "activeTab",

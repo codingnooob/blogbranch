@@ -10,10 +10,11 @@
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+const packageJson = require('../package.json');
 
 // Configuration
 const BUILD_DIR = 'build-firefox';
-const PACKAGE_NAME = 'blog-link-analyzer-firefox-v1.0.0.zip';
+const PACKAGE_NAME = `blog-link-analyzer-firefox-v${packageJson.version}.zip`;
 
 // Required files and directories for Firefox submission
 const REQUIRED_FILES = [

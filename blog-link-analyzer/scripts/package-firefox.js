@@ -16,7 +16,7 @@ async function createPackage() {
   const firefoxManifestContent = JSON.stringify({
     "manifest_version": 2,
     "name": "Blog Link Analyzer",
-    "version": "1.0.0",
+    "version": packageJson.version,
     "description": "Detects blog posts and extracts linked blog content with titles and authors",
     "permissions": [
       "activeTab",
