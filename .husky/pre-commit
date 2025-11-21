@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run linting
+echo "📝 Running ESLint..."
+npm run lint
+if [ $? -ne 0 ]; then
+    echo "❌ ESLint failed. Please fix linting errors before committing."
+    exit 1
+fi
+
+# Run type checking
+echo "🔷 Running TypeScript type checking..."
+npm run typecheck
+if [ $? -ne 0 ]; then
+    echo "❌ Type checking failed. Please fix type errors before committing."
+    exit 1
+fi
+
+# Run tests
+echo "🧪 Running tests..."
+npm test
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed. Please fix failing tests before committing."
+    exit 1
+fi
+
+# Check if package.json is valid
+echo "📦 Validating package.json..."
+node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+if [ $? -ne 0 ]; then
+    echo "❌ package.json is not valid JSON."
+    exit 1
+fi
+
+# Check if manifest.json is valid
+echo "📋 Validating manifest.json..."
+node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'))"
+if [ $? -ne 0 ]; then
+    echo "❌ manifest.json is not valid JSON."
+    exit 1
+fi
+
+# Check for console.log statements in production files
+echo "🚫 Checking for console.log statements..."
+if grep -r "console\.log" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build-firefox .; then
+    echo "⚠️  Warning: console.log statements found in source files. Consider removing them for production."
+fi
+
+# Check file sizes
+echo "📏 Checking file sizes..."
+MAX_SIZE=$((5 * 1024 * 1024)) # 5MB limit
+for file in *.js; do
+    if [ -f "$file" ] && [ "$file" != "node_modules" ]; then
+        size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+        if [ "$size" -gt "$MAX_SIZE" ]; then
+            echo "⚠️  Warning: $file is larger than 5MB ($(($size / 1024 / 1024))MB)"
+        fi
+    fi
+done
+
+echo "✅ All pre-commit checks passed!"
+exit 0

@@ -1,0 +1,51 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push checks..."
+
+# Run full validation
+echo "🔧 Running full validation..."
+npm run validate
+if [ $? -ne 0 ]; then
+    echo "❌ Validation failed. Please fix issues before pushing."
+    exit 1
+fi
+
+# Build extension
+echo "🏗️  Building extension..."
+npm run build
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed. Please fix build errors before pushing."
+    exit 1
+fi
+
+# Build Firefox version
+echo "🦊 Building Firefox version..."
+npm run build:firefox
+if [ $? -ne 0 ]; then
+    echo "❌ Firefox build failed. Please fix build errors before pushing."
+    exit 1
+fi
+
+# Create packages
+echo "📦 Creating packages..."
+npm run package:all-formats
+if [ $? -ne 0 ]; then
+    echo "❌ Package creation failed. Please fix packaging errors before pushing."
+    exit 1
+fi
+
+# Check if packages were created
+echo "📋 Verifying packages..."
+if [ ! -f "blog-link-analyzer-$(node -p \"require('./package.json').version\").zip" ]; then
+    echo "❌ Chrome package not found."
+    exit 1
+fi
+
+if [ ! -f "blog-link-analyzer-firefox-$(node -p \"require('./package.json').version\").zip" ]; then
+    echo "❌ Firefox package not found."
+    exit 1
+fi
+
+echo "✅ All pre-push checks passed!"
+exit 0

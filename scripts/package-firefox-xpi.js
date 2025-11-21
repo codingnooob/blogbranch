@@ -18,11 +18,11 @@ async function createFirefoxXPI() {
     await webExt.cmd.build({
       sourceDir: 'build-firefox',
       artifactsDir: '.',
-      filename: 'blog-link-analyzer-firefox-v1.1.0.xpi',
+      filename: 'blog-link-analyzer-firefox-v1.1.1.xpi',
       overwriteDest: true
     });
     
-    console.log('✅ XPI package created: blog-link-analyzer-firefox-v1.1.0.xpi');
+    console.log('✅ XPI package created: blog-link-analyzer-firefox-v1.1.1.xpi');
     
     // Get file size
     const stats = fs.statSync('blog-link-analyzer-firefox-v1.1.0.xpi');

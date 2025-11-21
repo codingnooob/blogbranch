@@ -4,12 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 
+// Get version from package.json
+const packageJson = require('../package.json');
+const VERSION = packageJson.version;
+
 async function createFirefoxPackage() {
-  const output = fs.createWriteStream('blog-link-analyzer-firefox-v1.1.0.zip');
+  const output = fs.createWriteStream(`blog-link-analyzer-firefox-${VERSION}.zip`);
   const archive = archiver('zip', { zlib: { level: 9 } });
 
   output.on('close', () => {
-    console.log('✅ Firefox extension package created: blog-link-analyzer-firefox-v1.1.0.zip');
+    console.log(`✅ Firefox extension package created: blog-link-analyzer-firefox-${VERSION}.zip`);
     console.log(`📦 Package size: ${archive.pointer()} bytes`);
   });
 
@@ -21,7 +25,7 @@ async function createFirefoxPackage() {
 
   // Add files to archive
   const filesToInclude = [
-    'manifest-firefox.json',
+    'manifest.json',
     'popup.html',
     'popup.js',
     'popup.css',

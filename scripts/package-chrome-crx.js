@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 
+// Get version from package.json
+const packageJson = require('../package.json');
+const VERSION = packageJson.version;
+
 async function createChromeCRX() {
   console.log('Creating Chrome CRX package...');
   
@@ -48,14 +52,14 @@ async function createChromeCRX() {
 
     archive.finalize();
   });
-  
+
   // Convert to CRX (simplified version - in production you'd use proper signing)
-  fs.copyFileSync('temp-chrome.zip', 'blog-link-analyzer-v1.1.0.crx');
+  fs.copyFileSync('temp-chrome.zip', `blog-link-analyzer-${VERSION}.crx`);
   fs.unlinkSync('temp-chrome.zip');
   
-  console.log('✅ Chrome CRX package created: blog-link-analyzer-v1.1.0.crx');
+  console.log(`✅ Chrome CRX package created: blog-link-analyzer-${VERSION}.crx`);
   
-  const stats = fs.statSync('blog-link-analyzer-v1.1.0.crx');
+  const stats = fs.statSync(`blog-link-analyzer-${VERSION}.crx`);
   console.log(`📦 Package size: ${stats.size} bytes`);
 }
 
