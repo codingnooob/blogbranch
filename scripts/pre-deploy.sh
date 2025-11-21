@@ -44,7 +44,7 @@ npm run package:all-formats
 
 # Validate packages
 echo "📋 Validating packages..."
-VERSION=$(node -p "require('./package.json').version")
+VERSION=$(node -p "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")
 
 REQUIRED_PACKAGES=(
     "blog-link-analyzer-$VERSION.zip"
@@ -82,7 +82,7 @@ fi
 # Version consistency check
 echo "🔢 Checking version consistency..."
 MANIFEST_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8')).version")
-PACKAGE_VERSION=$(node -p "require('./package.json').version")
+PACKAGE_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version")
 
 if [ "$MANIFEST_VERSION" != "$PACKAGE_VERSION" ]; then
     echo "❌ Version mismatch: manifest.json ($MANIFEST_VERSION) != package.json ($PACKAGE_VERSION)"

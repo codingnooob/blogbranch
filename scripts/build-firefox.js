@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 function createFirefoxStructure() {
   console.log('🔥 Building Firefox Extension for Submission...');

@@ -35,7 +35,7 @@ fi
 echo "✅ Validation passed"
 
 # Get current version
-CURRENT_VERSION=$(node -p "require('../package.json').version")
+CURRENT_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('../package.json', 'utf8')).version")
 echo "📦 Current version: $CURRENT_VERSION"
 
 # Bump version
@@ -43,7 +43,7 @@ echo "🔢 Bumping version..."
 npm version $VERSION_TYPE --no-git-tag-version
 
 # Get new version
-NEW_VERSION=$(node -p "require('../package.json').version")
+NEW_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('../package.json', 'utf8')).version")
 echo "🎉 New version: $NEW_VERSION"
 
 # Build and package

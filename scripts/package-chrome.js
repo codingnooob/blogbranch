@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const archiver = require('archiver');
+import fs from 'fs';
+import path from 'path';
+import archiver from 'archiver';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Get version from package.json
-const packageJson = require('../package.json');
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
 const VERSION = packageJson.version;
 
 async function createChromePackage() {

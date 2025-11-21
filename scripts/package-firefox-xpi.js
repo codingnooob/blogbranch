@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const archiver = require('archiver');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 async function createFirefoxXPI() {
   console.log('Starting XPI generation...');
   
   // First build Firefox structure
-  const { execSync } = require('child_process');
   execSync('node scripts/build-firefox.js', { stdio: 'inherit' });
   
   // Create XPI with web-ext
-  const webExt = require('web-ext');
+  const webExt = (await import('web-ext')).default;
   
   try {
     await webExt.cmd.build({

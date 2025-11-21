@@ -16,7 +16,7 @@ echo "🔄 Running version bump..."
 ./scripts/version.sh "$VERSION_TYPE" "$MESSAGE"
 
 # Get new version
-NEW_VERSION=$(node -p "require('../package.json').version")
+NEW_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('../package.json', 'utf8')).version")
 echo "🎉 Release version: $NEW_VERSION"
 
 # Create GitHub release (if gh CLI is available)
