@@ -1,5 +1,7 @@
 # Blog Link Analyzer
 
+> 🚀 **Automated Release Pipeline Status**: ✅ **ACTIVE** - v1.1.3 deployed successfully
+
 A browser extension that detects blog posts and extracts linked blog content with AI-powered summarization capabilities.
 
 ## 🌟 Features
