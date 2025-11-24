@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/codingnooob/blogbranch/compare/v1.1.2...v1.2.0) (2025-11-24)
+
+
+### Features
+
+* add automated semantic release documentation ([d0133af](https://github.com/codingnooob/blogbranch/commit/d0133afcc42dea26bcdddc27d835bcc65906594f))
+
 # 1.0.0 (2025-11-22)
 
 
