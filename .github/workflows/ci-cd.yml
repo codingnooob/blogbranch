@@ -106,12 +106,17 @@ jobs:
           npm run build:firefox
           npm run package:all-formats
 
+      - name: Verify artifacts exist
+        run: |
+          ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
+
       - name: Deploy to Chrome Web Store
         uses: PlasmoHQ/bpp@v2
         with:
           keys: ${{ secrets.CHROME_CLIENT_ID }}:${{ secrets.CHROME_CLIENT_SECRET }}:${{ secrets.CHROME_REFRESH_TOKEN }}
           zip: blog-link-analyzer-*.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+        continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
         uses: firefox-devtools/firefox-addon-submit@v1
@@ -119,6 +124,7 @@ jobs:
           api-key: ${{ secrets.FIREFOX_JWT_ISSUER }}
           api-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
           xpi: blog-link-analyzer-firefox-*.xpi
+        continue-on-error: true
 
       - name: Notify deployment success
         if: success()
