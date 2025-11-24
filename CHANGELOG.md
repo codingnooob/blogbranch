@@ -1,3 +1,10 @@
+## [1.2.3](https://github.com/codingnooob/blogbranch/compare/v1.2.2...v1.2.3) (2025-11-24)
+
+
+### Bug Fixes
+
+* prevent security audit from failing CI ([ed0a87a](https://github.com/codingnooob/blogbranch/commit/ed0a87a256453374dd031579058a4b4a4b533fa6))
+
 ## [1.2.2](https://github.com/codingnooob/blogbranch/compare/v1.2.1...v1.2.2) (2025-11-24)
 
 
