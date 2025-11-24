@@ -74,12 +74,12 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run security audit
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=high
 
       - name: Generate security report
         run: |
           echo "Security audit completed"
-          npm audit --audit-level=moderate --json > security-report.json || true
+          npm audit --audit-level=high --json > security-report.json || true
           echo "Security report generated"
 
   release:
