@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/codingnooob/blogbranch/compare/v1.3.0...v1.3.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* configure release jobs to trigger on semantic releases ([39bc68a](https://github.com/codingnooob/blogbranch/commit/39bc68aaca00feebfcb23bf1e07c0b0db5c81272))
+
 # [1.3.0](https://github.com/codingnooob/blogbranch/compare/v1.2.4...v1.3.0) (2025-11-24)
 
 
