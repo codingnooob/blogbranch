@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/codingnooob/blogbranch/compare/v1.5.0...v1.5.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* restore complete CI/CD workflow structure ([0316f3f](https://github.com/codingnooob/blogbranch/commit/0316f3f46ed20e7f74bab66b3c9b9f2d718f274a))
+
 # [1.5.0](https://github.com/codingnooob/blogbranch/compare/v1.4.1...v1.5.0) (2025-11-24)
 
 
