@@ -1,3 +1,10 @@
+## [1.2.4](https://github.com/codingnooob/blogbranch/compare/v1.2.3...v1.2.4) (2025-11-24)
+
+
+### Bug Fixes
+
+* install missing semantic-release plugins ([1b7d17a](https://github.com/codingnooob/blogbranch/commit/1b7d17a7c421412cab530c6dce5adadd8de1c50b))
+
 ## [1.2.3](https://github.com/codingnooob/blogbranch/compare/v1.2.2...v1.2.3) (2025-11-24)
 
 
