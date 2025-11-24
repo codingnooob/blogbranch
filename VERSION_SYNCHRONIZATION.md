@@ -4,7 +4,30 @@ This document outlines the process for maintaining version synchronization acros
 
 ## Automated Semantic Release Implementation
 
-As of v1.1.1, the project now implements fully automated semantic releases with end-to-end deployment pipeline.
+As of v1.2.4, the project now implements fully automated semantic releases with end-to-end deployment pipeline.
+
+### How It Works
+
+1. **Commit Analysis**: Semantic Release analyzes commit messages to determine version bump
+2. **Automatic Release**: Creates GitHub release with changelog and assets
+3. **Store Deployment**: Automatically deploys to Chrome Web Store and Firefox Add-ons
+4. **Version Synchronization**: All platforms maintain consistent versioning
+
+### Commit Message Format
+
+Use conventional commits to trigger releases:
+
+- `feat:` for new features (minor version)
+- `fix:` for bug fixes (patch version)
+- `BREAKING CHANGE:` for breaking changes (major version)
+
+### Current Status
+
+✅ **Automated Versioning**: Semantic Release manages version numbers
+✅ **GitHub Releases**: Automatic creation with changelog
+✅ **Asset Generation**: Extension packages built and attached
+✅ **Store Deployment**: Automated submission to browser stores
+✅ **Version Sync**: All platforms synchronized automatically
 
 ## Current Platform Status
 
