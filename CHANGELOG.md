@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/codingnooob/blogbranch/compare/v1.3.1...v1.4.0) (2025-11-24)
+
+
+### Features
+
+* improve release trigger logic for automated assets ([7b3c57e](https://github.com/codingnooob/blogbranch/commit/7b3c57ebcbde19e6e123c942766f071af5887de6))
+
 ## [1.3.1](https://github.com/codingnooob/blogbranch/compare/v1.3.0...v1.3.1) (2025-11-24)
 
 
