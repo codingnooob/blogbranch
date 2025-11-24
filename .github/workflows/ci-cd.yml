@@ -85,7 +85,7 @@ jobs:
   release:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
-    if: (github.event_name == 'release' && github.event.action == 'published') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[skip ci]'))
+    if: (github.event_name == 'release' && github.event.action == 'published') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     steps:
       - name: Checkout code
@@ -119,7 +119,7 @@ jobs:
   deploy-stores:
     needs: [test, security-scan, release]
     runs-on: ubuntu-latest
-    if: (github.event_name == 'release' && github.event.action == 'published' && !contains(github.event.release.name, 'next')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[skip ci]'))
+    if: (github.event_name == 'release' && github.event.action == 'published' && !contains(github.event.release.name, 'next')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     steps:
       - name: Checkout code
