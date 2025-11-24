@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/codingnooob/blogbranch/compare/v1.4.0...v1.4.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* simplify release trigger conditions ([bf63b0b](https://github.com/codingnooob/blogbranch/commit/bf63b0b825736b992f06da3819a021cbe926f68e))
+
 # [1.4.0](https://github.com/codingnooob/blogbranch/compare/v1.3.1...v1.4.0) (2025-11-24)
 
 
