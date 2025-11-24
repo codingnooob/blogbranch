@@ -28,6 +28,7 @@ Use conventional commits to trigger releases:
 ✅ **Asset Generation**: Extension packages built and attached
 ✅ **Store Deployment**: Automated submission to browser stores
 ✅ **Version Sync**: All platforms synchronized automatically
+✅ **Permissions Fixed**: GitHub Actions write access enabled
 
 ## Current Platform Status
 
