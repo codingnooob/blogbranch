@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/codingnooob/blogbranch/compare/v1.2.4...v1.3.0) (2025-11-24)
+
+
+### Features
+
+* confirm automated release pipeline is working ([689bff2](https://github.com/codingnooob/blogbranch/commit/689bff204409b26fc7a6d1d5e561d04ca76856f2))
+
 ## [1.2.4](https://github.com/codingnooob/blogbranch/compare/v1.2.3...v1.2.4) (2025-11-24)
 
 
