@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/codingnooob/blogbranch/compare/v1.2.0...v1.2.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* add semantic-release dependency for automated releases ([ec68f71](https://github.com/codingnooob/blogbranch/commit/ec68f71ce9a5cd6447829c7c90040c6770cda6cc))
+
 # [1.2.0](https://github.com/codingnooob/blogbranch/compare/v1.1.2...v1.2.0) (2025-11-24)
 
 
