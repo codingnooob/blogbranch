@@ -36,7 +36,11 @@
     "pre-deploy": "./scripts/pre-deploy.sh",
     "deploy:chrome": "echo 'Upload blog-link-analyzer-$(node -p \"require(\\\"./package.json\\\").version\").zip to Chrome Web Store'",
     "deploy:firefox": "echo 'Upload blog-link-analyzer-firefox-$(node -p \"require(\\\"./package.json\\\").version\").zip to Firefox Add-ons'",
-    "deploy:all": "npm run deploy:chrome && npm run deploy:firefox"
+    "deploy:all": "npm run deploy:chrome && npm run deploy:firefox",
+    "deploy:validate": "./scripts/validate-deployment.sh",
+    "deploy:rollback": "./scripts/rollback.sh",
+    "deploy:rollback:chrome": "./scripts/rollback.sh latest chrome",
+    "deploy:rollback:firefox": "./scripts/rollback.sh latest firefox"
   },
   "keywords": [
     "blog",

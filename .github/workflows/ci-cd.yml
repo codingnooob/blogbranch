@@ -2,151 +2,199 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
-    types: [ published ]
+    types: [published]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [20.x]
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci --ignore-scripts
-      
-    - name: Run linting
-      run: npm run lint
-      
-    - name: Run type checking
-      run: npm run typecheck
-      
-    - name: Run tests
-      run: npm test
-      
-    - name: Build extension
-      run: npm run build
-      
-    - name: Build Firefox version
-      run: npm run build:firefox
-      
-    - name: Create packages
-      run: npm run package:all-formats
-      
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: extension-packages-${{ matrix.node-version }}
-        path: |
-          *.zip
-          *.crx
-          *.xpi
-        retention-days: 30
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Build Firefox version
+        run: npm run build:firefox
+
+      - name: Create packages
+        run: npm run package:all-formats
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-packages-${{ matrix.node-version }}
+          path: |
+            *.zip
+            *.crx
+            *.xpi
+          retention-days: 30
 
   security-scan:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci --ignore-scripts
-      
-    - name: Run security audit
-      run: npm audit --audit-level=moderate
-      
-    - name: Generate security report
-      run: |
-        echo "Security audit completed"
-        npm audit --audit-level=moderate --json > security-report.json || true
-        echo "Security report generated"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Generate security report
+        run: |
+          echo "Security audit completed"
+          npm audit --audit-level=moderate --json > security-report.json || true
+          echo "Security report generated"
 
   release:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci --ignore-scripts
-      
-    - name: Build and package
-      run: |
-        npm run build
-        npm run build:firefox
-        npm run package:all-formats
-        
-    - name: Upload release assets
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          *.zip
-          *.crx
-          *.xpi
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build and package
+        run: |
+          npm run build
+          npm run build:firefox
+          npm run package:all-formats
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            *.zip
+            *.crx
+            *.xpi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-stores:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+    if: github.event_name == 'release'
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build and package
+        run: |
+          npm run build
+          npm run build:firefox
+          npm run package:all-formats
+
+- name: Deploy to Chrome Web Store
+      uses: PlasmoHQ/bpp@v2
       with:
-        node-version: '20.x'
-        cache: 'npm'
+        keys: ${{ secrets.CHROME_CLIENT_ID }}:${{ secrets.CHROME_CLIENT_SECRET }}:${{ secrets.CHROME_REFRESH_TOKEN }}
+        zip: blog-link-analyzer-*.zip
+        extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+
+- name: Deploy to Firefox Add-ons
+      uses: firefox-devtools/firefox-addon-submit@v1
+      with:
+        api-key: ${{ secrets.FIREFOX_JWT_ISSUER }}
+        api-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
+        xpi: blog-link-analyzer-firefox-*.xpi
         
-    - name: Install dependencies
-      run: npm ci --ignore-scripts
-      
-    - name: Build and package
+    - name: Notify deployment success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '🚀 **Store Deployment Successful**\n\n✅ Chrome Web Store: Submitted for review\n✅ Firefox Add-ons: Submitted for review\n\nRelease: ${{ github.event.release.tag_name }}'
+          })
+          
+    - name: Notify deployment failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+          })
+          
+    - name: Store deployment metadata
+      if: success()
       run: |
-        npm run build
-        npm run build:firefox
-        npm run package:all-formats
+        echo "DEPLOYMENT_VERSION=${{ github.event.release.tag_name }}" >> deployment.env
+        echo "DEPLOYMENT_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deployment.env
+        echo "CHROME_PACKAGE=blog-link-analyzer-$(node -p "require('./package.json').version").zip" >> deployment.env
+        echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-$(node -p "require('./package.json').version").xpi" >> deployment.env
         
-    - name: Deploy to Chrome Web Store
-      run: |
-        echo "Chrome Web Store deployment would go here"
-        echo "Package: blog-link-analyzer-*.zip"
-        echo "Configure with Chrome Web Store API credentials"
+    - name: Upload deployment metadata
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-metadata-${{ github.event.release.tag_name }}
+        path: deployment.env
+        retention-days: 90
         
-    - name: Deploy to Firefox Add-ons
+    - name: Validate deployment
+      if: success()
       run: |
-        echo "Firefox Add-ons deployment would go here"
-        echo "Package: blog-link-analyzer-firefox-*.xpi"
-        echo "Configure with Firefox Add-ons API credentials"
+        chmod +x scripts/validate-deployment.sh
+        ./scripts/validate-deployment.sh

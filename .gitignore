@@ -1,2 +1,4 @@
 www.lesswrong.com.har
 *.pem
+STORE_DEPLOYMENT_CREDENTIALS.md
+DEPLOYMENT_ENVIRONMENT.md
