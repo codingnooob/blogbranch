@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/codingnooob/blogbranch/compare/v1.4.1...v1.5.0) (2025-11-24)
+
+
+### Features
+
+* finalize automated release pipeline ([35f5b85](https://github.com/codingnooob/blogbranch/commit/35f5b858e7a4468570050d64d674ca03a2cafdc4))
+
 ## [1.4.1](https://github.com/codingnooob/blogbranch/compare/v1.4.0...v1.4.1) (2025-11-24)
 
 
