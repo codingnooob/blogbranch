@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/codingnooob/blogbranch/compare/v1.2.1...v1.2.2) (2025-11-24)
+
+
+### Bug Fixes
+
+* adjust security audit level to high only ([d0d37aa](https://github.com/codingnooob/blogbranch/commit/d0d37aae3a433ec52f43832fa0b47a4452b654fe))
+
 ## [1.2.1](https://github.com/codingnooob/blogbranch/compare/v1.2.0...v1.2.1) (2025-11-24)
 
 
