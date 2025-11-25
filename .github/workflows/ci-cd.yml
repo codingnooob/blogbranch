@@ -158,18 +158,27 @@ jobs:
           echo "📦 Available artifacts:"
           ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
 
-      - name: Debug Chrome Secrets
+      - name: Validate Chrome Configuration
         run: |
-          echo "🔍 Chrome Secrets Debug"
-          echo "CHROME_EXTENSION_ID exists: ${{ secrets.CHROME_EXTENSION_ID != '' }}"
-          echo "CHROME_CLIENT_ID exists: ${{ secrets.CHROME_CLIENT_ID != '' }}"
-          echo "CHROME_CLIENT_SECRET exists: ${{ secrets.CHROME_CLIENT_SECRET != '' }}"
-          echo "CHROME_REFRESH_TOKEN exists: ${{ secrets.CHROME_REFRESH_TOKEN != '' }}"
+          echo "🔍 Chrome Configuration Validation"
+          echo "Extension ID configured: ${{ secrets.CHROME_EXTENSION_ID != '' }}"
+          echo "Client ID configured: ${{ secrets.CHROME_CLIENT_ID != '' }}"
+          echo "Client Secret configured: ${{ secrets.CHROME_CLIENT_SECRET != '' }}"
+          echo "Refresh Token configured: ${{ secrets.CHROME_REFRESH_TOKEN != '' }}"
           echo ""
-          echo "Chrome Extension ID length: ${{ secrets.CHROME_EXTENSION_ID && length(secrets.CHROME_EXTENSION_ID) || 0 }}"
-          echo "Chrome Client ID length: ${{ secrets.CHROME_CLIENT_ID && length(secrets.CHROME_CLIENT_ID) || 0 }}"
-          echo "Chrome Client Secret length: ${{ secrets.CHROME_CLIENT_SECRET && length(secrets.CHROME_CLIENT_SECRET) || 0 }}"
-          echo "Chrome Refresh Token length: ${{ secrets.CHROME_REFRESH_TOKEN && length(secrets.CHROME_REFRESH_TOKEN) || 0 }}"
+          
+          # Validate all required secrets are configured
+          if [[ -n "${{ secrets.CHROME_EXTENSION_ID }}" && \
+                -n "${{ secrets.CHROME_CLIENT_ID }}" && \
+                -n "${{ secrets.CHROME_CLIENT_SECRET }}" && \
+                -n "${{ secrets.CHROME_REFRESH_TOKEN }}" ]]; then
+            echo "✅ All Chrome secrets are configured"
+            echo "🚀 Proceeding with Chrome Web Store deployment"
+          else
+            echo "❌ Missing Chrome secrets configuration"
+            echo "Please check: CHROME_EXTENSION_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN"
+            echo "Chrome deployment will be skipped"
+          fi
 
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
