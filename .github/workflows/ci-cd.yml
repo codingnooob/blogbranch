@@ -136,33 +136,22 @@ jobs:
           ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
 
       - name: Deploy to Chrome Web Store
-        uses: PlasmoHQ/bpp@v2
+        uses: wdzeng/chrome-extension@v1
         with:
-          keys: ${{ secrets.CHROME_CLIENT_ID }}:${{ secrets.CHROME_CLIENT_SECRET }}:${{ secrets.CHROME_REFRESH_TOKEN }}
-          zip: blog-link-analyzer-*.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          zip-path: blog-link-analyzer-*.zip
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
-        run: |
-          echo "Deploying to Firefox Add-ons..."
-          
-          # Find the XPI file
-          XPI_FILE=$(ls blog-link-analyzer-firefox-*.xpi | head -n 1)
-          echo "Found XPI file: $XPI_FILE"
-          
-          # Deploy using Firefox Add-ons API
-          if [ -n "$XPI_FILE" ]; then
-            curl -X POST \
-              "https://addons.mozilla.org/api/v5/addons/" \
-              -H "Authorization: JWT ${{ secrets.FIREFOX_JWT_ISSUER }}" \
-              -H "Content-Type: application/json" \
-              -d '{"upload":{"uuid":"'$(uuidgen)'","version":"'$(node -p -e 'require("./package.json").version')'","channel":"listed"}}' \
-              --form "upload=@$XPI_FILE" \
-              --verbose
-          else
-            echo "No XPI file found to deploy"
-          fi
+        uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
+          xpi-path: blog-link-analyzer-firefox-*.xpi
+          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
 
       - name: Notify deployment success

@@ -157,7 +157,6 @@ class ExtensionTester {
       await popupPage.waitForTimeout(2000);
 
       // Check if popup loaded correctly
-      const popupTitle = await popupPage.title();
       const popupContent = await popupPage.content();
 
       if (!popupContent.includes('Blog Link Analyzer')) {
