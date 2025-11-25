@@ -230,7 +230,7 @@ jobs:
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: blog-link-analyzer-${VERSION}.zip
+          zip-path: blog-link-analyzer-$(node -p 'require("./package.json").version').zip
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
@@ -249,7 +249,7 @@ jobs:
         uses: wdzeng/firefox-addon@v1
         with:
           addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          xpi-path: blog-link-analyzer-firefox-${{ github.event.release.tag_name }}.xpi
+          xpi-path: blog-link-analyzer-firefox-$(node -p 'require("./package.json").version').xpi
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
