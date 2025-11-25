@@ -201,6 +201,7 @@ jobs:
       - name: Build Version-Specific Artifacts
         run: |
           VERSION=$(node -p 'require("./package.json").version')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           echo "✅ Artifacts built with version ${VERSION}"
@@ -209,16 +210,15 @@ jobs:
 
       - name: Verify Deployment Files
         run: |
-          VERSION=$(node -p 'require("./package.json").version')
           echo "🔍 Verifying deployment files exist..."
-          echo "Looking for: blog-link-analyzer-${VERSION}.zip"
-          if [ -f "blog-link-analyzer-${VERSION}.zip" ]; then
+          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.zip"
+          if [ -f "blog-link-analyzer-${{ env.VERSION }}.zip" ]; then
             echo "✅ Chrome ZIP found"
           else
             echo "❌ Chrome ZIP NOT found"
           fi
-          echo "Looking for: blog-link-analyzer-firefox-${VERSION}.xpi"
-          if [ -f "blog-link-analyzer-firefox-${VERSION}.xpi" ]; then
+          echo "Looking for: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi"
+          if [ -f "blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" ]; then
             echo "✅ Firefox XPI found"
           else
             echo "❌ Firefox XPI NOT found"
@@ -230,7 +230,7 @@ jobs:
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: blog-link-analyzer-$(node -p "require('./package.json').version").zip
+          zip-path: blog-link-analyzer-${{ env.VERSION }}.zip
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
@@ -240,16 +240,7 @@ jobs:
         uses: wdzeng/firefox-addon@v1
         with:
           addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          xpi-path: blog-link-analyzer-firefox-${VERSION}.xpi
-          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
-        continue-on-error: true
-
-      - name: Deploy to Firefox Add-ons
-        uses: wdzeng/firefox-addon@v1
-        with:
-          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          xpi-path: blog-link-analyzer-firefox-$(node -p "require('./package.json').version").xpi
+          xpi-path: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
@@ -288,8 +279,8 @@ jobs:
         run: |
           echo "DEPLOYMENT_VERSION=${{ github.event.release.tag_name }}" >> deployment.env
           echo "DEPLOYMENT_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deployment.env
-          echo "CHROME_PACKAGE=blog-link-analyzer-$(node -p "require('./package.json').version").zip" >> deployment.env
-          echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-$(node -p "require('./package.json').version").xpi" >> deployment.env
+          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.zip" >> deployment.env
+          echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" >> deployment.env
 
       - name: Upload deployment metadata
         if: success()
