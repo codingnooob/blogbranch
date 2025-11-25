@@ -144,6 +144,20 @@ jobs:
           check-credentials-only: true
         continue-on-error: true
 
+      - name: Check Store Versions
+        run: |
+          echo "📋 Store Version Information"
+          echo "Current package version: $(node -p 'require("./package.json").version')"
+          echo "Chrome extension ID: ${{ secrets.CHROME_EXTENSION_ID }}"
+          echo "Firefox addon GUID: ${{ secrets.FIREFOX_ADDON_GUID }}"
+          echo ""
+          echo "🔍 Checking manifest versions..."
+          echo "manifest.json version: $(node -p 'require("./manifest.json").version')"
+          echo "manifest-firefox.json version: $(node -p 'require("./manifest-firefox.json").version')"
+          echo ""
+          echo "📦 Available artifacts:"
+          ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
+
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
         with:
@@ -154,14 +168,7 @@ jobs:
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
         continue-on-error: true
 
-      - name: Test Firefox Credentials
-        uses: wdzeng/firefox-addon@v1
-        with:
-          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
-          check-credentials-only: true
-        continue-on-error: true
+
 
       - name: Deploy to Firefox Add-ons
         uses: wdzeng/firefox-addon@v1
