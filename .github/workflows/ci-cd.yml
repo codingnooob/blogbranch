@@ -135,6 +135,15 @@ jobs:
         run: |
           ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
 
+      - name: Test Chrome Credentials
+        uses: wdzeng/chrome-extension@v1
+        with:
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          check-credentials-only: true
+        continue-on-error: true
+
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
         with:
@@ -143,6 +152,15 @@ jobs:
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true
+
+      - name: Test Firefox Credentials
+        uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
+          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
+          check-credentials-only: true
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
@@ -156,15 +174,20 @@ jobs:
 
       - name: Notify deployment success
         if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🚀 **Store Deployment Successful**\n\n✅ Chrome Web Store: Submitted for review\n✅ Firefox Add-ons: Submitted for review\n\nRelease: ${{ github.event.release.tag_name }}'
-            })
+        run: |
+          echo "🚀 Store Deployment Successful"
+          echo "✅ Chrome Web Store: Submitted for review"
+          echo "✅ Firefox Add-ons: Submitted for review"
+          echo "Release: ${{ github.event.release.tag_name }}"
+          echo "Check individual store dashboards for approval status"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Store Deployment Failed"
+          echo "Please check workflow logs for details"
+          echo "Release: ${{ github.event.release.tag_name }}"
+          echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
 
       - name: Notify deployment failure
         if: failure()
