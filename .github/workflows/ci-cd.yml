@@ -200,22 +200,49 @@ jobs:
 
       - name: Build Version-Specific Artifacts
         run: |
-          echo "📦 Building version-specific artifacts..."
           VERSION=$(node -p 'require("./package.json").version')
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
-          ls -la blog-link-analyzer-*.zip blog-link-analyzer-firefox-*.xpi
+          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-firefox-${VERSION}.xpi
+
+      - name: Verify Deployment Files
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          echo "🔍 Verifying deployment files exist..."
+          echo "Looking for: blog-link-analyzer-${VERSION}.zip"
+          if [ -f "blog-link-analyzer-${VERSION}.zip" ]; then
+            echo "✅ Chrome ZIP found"
+          else
+            echo "❌ Chrome ZIP NOT found"
+          fi
+          echo "Looking for: blog-link-analyzer-firefox-${VERSION}.xpi"
+          if [ -f "blog-link-analyzer-firefox-${VERSION}.xpi" ]; then
+            echo "✅ Firefox XPI found"
+          else
+            echo "❌ Firefox XPI NOT found"
+          fi
+          echo "Current directory contents:"
+          find . -name "blog-link-analyzer-*" -type f -exec ls -la {} \;
 
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: blog-link-analyzer-${{ github.event.release.tag_name }}.zip
+          zip-path: blog-link-analyzer-${VERSION}.zip
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true
+
+      - name: Deploy to Firefox Add-ons
+        uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
+          xpi-path: blog-link-analyzer-firefox-${VERSION}.xpi
+          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
