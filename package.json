@@ -1,6 +1,6 @@
 {
   "name": "blog-link-analyzer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Detects blog posts and extracts linked blog content with titles and authors",
   "main": "background/service-worker.js",
   "scripts": {
