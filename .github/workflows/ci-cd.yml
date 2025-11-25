@@ -144,7 +144,7 @@ jobs:
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
-        uses: firefox-browser-actions/publish-firefox-addon@v2
+        uses: WebExtPublish/firefox-publish-action@v2
         with:
           api-key: ${{ secrets.FIREFOX_JWT_ISSUER }}
           api-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
