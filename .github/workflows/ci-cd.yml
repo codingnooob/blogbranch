@@ -26,9 +26,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+
+      - name: Verify critical dependencies
+        run: |
+          echo "Checking @babel/preset-env..."
+          npm list @babel/preset-env || echo "Babel preset missing, reinstalling..."
+          if ! npm list @babel/preset-env > /dev/null 2>&1; then
+            echo "Installing @babel/preset-env explicitly..."
+            npm install --save-dev @babel/preset-env
+          fi
 
       - name: Run linting
         run: npm run lint
@@ -96,9 +106,19 @@ jobs:
         with:
           node-version: '22.x'
           cache: 'npm'
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+
+      - name: Verify critical dependencies
+        run: |
+          echo "Checking @babel/preset-env..."
+          npm list @babel/preset-env || echo "Babel preset missing, reinstalling..."
+          if ! npm list @babel/preset-env > /dev/null 2>&1; then
+            echo "Installing @babel/preset-env explicitly..."
+            npm install --save-dev @babel/preset-env
+          fi
 
       - name: Build and package
         run: |
