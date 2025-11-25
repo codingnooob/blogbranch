@@ -211,26 +211,40 @@ jobs:
       - name: Verify Deployment Files
         run: |
           echo "🔍 Verifying deployment files exist..."
+          echo "VERSION from env: ${{ env.VERSION }}"
           echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.zip"
           if [ -f "blog-link-analyzer-${{ env.VERSION }}.zip" ]; then
             echo "✅ Chrome ZIP found"
           else
             echo "❌ Chrome ZIP NOT found"
+            echo "Available ZIP files:"
+            ls -la *.zip 2>/dev/null || echo "No ZIP files found"
           fi
           echo "Looking for: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi"
           if [ -f "blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" ]; then
             echo "✅ Firefox XPI found"
           else
             echo "❌ Firefox XPI NOT found"
+            echo "Available XPI files:"
+            ls -la *.xpi 2>/dev/null || echo "No XPI files found"
           fi
           echo "Current directory contents:"
           find . -name "blog-link-analyzer-*" -type f -exec ls -la {} \;
+
+      - name: Set Deployment Paths
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          echo "CHROME_ZIP_PATH=blog-link-analyzer-${VERSION}.zip" >> $GITHUB_ENV
+          echo "FIREFOX_XPI_PATH=blog-link-analyzer-firefox-${VERSION}.xpi" >> $GITHUB_ENV
+          echo "Deployment paths set:"
+          echo "Chrome: $CHROME_ZIP_PATH"
+          echo "Firefox: $FIREFOX_XPI_PATH"
 
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: blog-link-analyzer-${{ env.VERSION }}.zip
+          zip-path: ${{ env.CHROME_ZIP_PATH }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
@@ -240,7 +254,7 @@ jobs:
         uses: wdzeng/firefox-addon@v1
         with:
           addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          xpi-path: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi
+          xpi-path: ${{ env.FIREFOX_XPI_PATH }}
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
