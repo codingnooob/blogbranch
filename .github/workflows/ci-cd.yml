@@ -125,11 +125,21 @@ jobs:
             npm install --save-dev @babel/preset-env
           fi
 
-      - name: Build and package
+      - name: Build Extension
+        run: npm run build
+
+      - name: Build Firefox Extension
+        run: npm run build:firefox
+
+      - name: Create ZIP Artifacts
         run: |
-          npm run build
-          npm run build:firefox
-          npm run package:all-formats
+          npm run build:zip
+          npm run build:firefox:zip
+
+      - name: Verify Build Output
+        run: |
+          echo "🔍 Verifying build output..."
+          ls -la blog-link-analyzer*.zip blog-link-analyzer-firefox*.xpi
 
       - name: Verify artifacts exist
         run: |
