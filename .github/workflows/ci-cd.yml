@@ -1,4 +1,4 @@
-name: CI/CD Pipeline v3 - Final
+name: CI/CD Pipeline v4 - Cache Busted
 
 on:
   push:
@@ -92,7 +92,7 @@ jobs:
           npm audit --audit-level=high --json > security-report.json || true
           echo "Security report generated"
 
-  deploy-stores:
+  store-deployment:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published' && !contains(github.event.release.name, 'next')
@@ -144,7 +144,7 @@ jobs:
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
-        uses: firefox-browser-actions/publish-firefox-addon@v1
+        uses: https://github.com/firefox-browser-actions/publish-firefox-addon@v1
         with:
           api-key: ${{ secrets.FIREFOX_JWT_ISSUER }}
           api-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
