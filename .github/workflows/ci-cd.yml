@@ -180,23 +180,39 @@ jobs:
             echo "Chrome deployment will be skipped"
           fi
 
+      - name: Clean Old Artifacts
+        run: |
+          echo "🧹 Cleaning old artifacts..."
+          rm -f blog-link-analyzer-*.zip
+          rm -f blog-link-analyzer-*.crx
+          rm -f blog-link-analyzer-firefox-*.xpi
+          echo "✅ Artifacts cleaned"
+
+      - name: Build Version-Specific Artifacts
+        run: |
+          echo "📦 Building version-specific artifacts..."
+          VERSION=$(node -p 'require("./package.json").version')
+          cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
+          cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
+          echo "✅ Artifacts built with version ${VERSION}"
+          echo "📋 Available artifacts:"
+          ls -la blog-link-analyzer-*.zip blog-link-analyzer-firefox-*.xpi
+
       - name: Deploy to Chrome Web Store
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: blog-link-analyzer-*.zip
+          zip-path: blog-link-analyzer-${{ github.event.release.tag_name }}.zip
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
         continue-on-error: true
 
-
-
       - name: Deploy to Firefox Add-ons
         uses: wdzeng/firefox-addon@v1
         with:
           addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
-          xpi-path: blog-link-analyzer-firefox-*.xpi
+          xpi-path: blog-link-analyzer-firefox-${{ github.event.release.tag_name }}.xpi
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
