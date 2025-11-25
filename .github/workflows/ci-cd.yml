@@ -157,13 +157,7 @@ jobs:
               "https://addons.mozilla.org/api/v5/addons/" \
               -H "Authorization: JWT ${{ secrets.FIREFOX_JWT_ISSUER }}" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"upload\": {
-                  \"uuid\": \"$(uuidgen)\",
-                  \"version\": \"$(node -p -e 'require(\"./package.json\").version')\",
-                  \"channel\": \"listed\"
-                }
-              }" \
+              -d '{"upload":{"uuid":"'$(uuidgen)'","version":"'$(node -p -e 'require("./package.json").version')'","channel":"listed"}}' \
               --form "upload=@$XPI_FILE" \
               --verbose
           else
