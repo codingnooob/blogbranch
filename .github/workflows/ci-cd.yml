@@ -144,11 +144,31 @@ jobs:
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
-        uses: WebExtPublish/firefox-publish-action@v2
-        with:
-          api-key: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          api-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
-          xpi: blog-link-analyzer-firefox-*.xpi
+        run: |
+          echo "Deploying to Firefox Add-ons..."
+          
+          # Find the XPI file
+          XPI_FILE=$(ls blog-link-analyzer-firefox-*.xpi | head -n 1)
+          echo "Found XPI file: $XPI_FILE"
+          
+          # Deploy using Firefox Add-ons API
+          if [ -n "$XPI_FILE" ]; then
+            curl -X POST \
+              "https://addons.mozilla.org/api/v5/addons/" \
+              -H "Authorization: JWT ${{ secrets.FIREFOX_JWT_ISSUER }}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"upload\": {
+                  \"uuid\": \"$(uuidgen)\",
+                  \"version\": \"$(node -p -e 'require(\"./package.json\").version')\",
+                  \"channel\": \"listed\"
+                }
+              }" \
+              --form "upload=@$XPI_FILE" \
+              --verbose
+          else
+            echo "No XPI file found to deploy"
+          fi
         continue-on-error: true
 
       - name: Notify deployment success
