@@ -95,7 +95,7 @@ jobs:
   store-deployment:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published' && !contains(github.event.release.name, 'next')
+    if: github.event_name == 'release' && github.event.action == 'published'
 
     steps:
       - name: Checkout code
