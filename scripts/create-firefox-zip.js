@@ -17,9 +17,13 @@ async function createFirefoxZip() {
   return new Promise((resolve, reject) => {
     output.on('close', () => {
       console.log('✅ Firefox XPI created successfully');
+      console.log(`📦 XPI size: ${archive.pointer()} bytes`);
       resolve();
     });
+    archive.on('error', reject);
     output.on('error', reject);
+    
+    archive.finalize();
   });
 }
 

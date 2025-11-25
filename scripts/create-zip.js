@@ -17,9 +17,13 @@ async function createChromeZip() {
   return new Promise((resolve, reject) => {
     output.on('close', () => {
       console.log('✅ Chrome ZIP created successfully');
+      console.log(`📦 ZIP size: ${archive.pointer()} bytes`);
       resolve();
     });
+    archive.on('error', reject);
     output.on('error', reject);
+    
+    archive.finalize();
   });
 }
 
