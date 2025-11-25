@@ -28,8 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Install semantic-release globally
-        run: npm install -g semantic-release
+      - name: Verify semantic-release installation
+        run: |
+          which semantic-release
+          semantic-release --version
 
       - name: Verify dependencies
         run: npm run validate || true
