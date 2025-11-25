@@ -30,13 +30,9 @@ jobs:
 
       - name: Verify semantic-release installation
         run: |
-          which semantic-release
-          semantic-release --version
-
-      - name: Verify dependencies
-        run: npm run validate || true
+          npx semantic-release --version
 
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: semantic-release
+        run: npx semantic-release
