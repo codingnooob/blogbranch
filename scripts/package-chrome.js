@@ -201,7 +201,7 @@ function createCRX(zipData) {
 }
 
 function createSignedCRX(zipData, privateKey) {
-  const crypto = require('crypto');
+  const crypto = require('node:crypto');
   
   // CRX magic number for version 3 (signed)
   const CRX_MAGIC = 0x43723203;
