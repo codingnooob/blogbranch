@@ -206,8 +206,8 @@ jobs:
           # Use verified CRX private key from GitHub Secrets with fallback
           # Write secret to file with proper PEM formatting
           cat > chrome-extension.pem << 'EOF'
-${{ secrets.CHROME_CRX_PRIVATE_KEY }}
-EOF
+          ${{ secrets.CHROME_CRX_PRIVATE_KEY }}
+          EOF
           
           # Clean and normalize the PEM file
           sed -i 's/\r$//' chrome-extension.pem  # Remove Windows line endings
