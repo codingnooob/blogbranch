@@ -2,6 +2,7 @@ www.lesswrong.com.har
 *.pem
 STORE_DEPLOYMENT_CREDENTIALS.md
 DEPLOYMENT_ENVIRONMENT.md
+blogbranch-0e8a15a1d08d.json
 
 # Package files - generated during build/release
 *.zip

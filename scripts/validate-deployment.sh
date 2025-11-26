@@ -28,35 +28,64 @@ validate_chrome_deployment() {
         return 1
     fi
     
-    # Check extension status
+    # Check extension status using API V2
     EXTENSION_ID=${CHROME_EXTENSION_ID}
+    PUBLISHER_ID=${CHROME_PUBLISHER_ID}
+    
     if [ -z "$EXTENSION_ID" ]; then
         echo "⚠️ Chrome extension ID not provided, skipping status check"
         return 0
     fi
     
-    STATUS_RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/chromewebstore/v1.1/items/$EXTENSION_ID")
+    # Use API V2 endpoint if publisher ID is available, otherwise fallback to V1
+    if [ -n "$PUBLISHER_ID" ]; then
+        ITEM_NAME="publishers/$PUBLISHER_ID/items/$EXTENSION_ID"
+        STATUS_RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "https://chromewebstore.googleapis.com/v2/$ITEM_NAME:fetchStatus")
+        echo "🔍 Using API V2 endpoint for status check"
+    else
+        STATUS_RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/chromewebstore/v1.1/items/$EXTENSION_ID")
+        echo "🔍 Using API V1 endpoint for status check (fallback)"
+    fi
     
     if echo "$STATUS_RESPONSE" | jq -e .error >/dev/null 2>&1; then
         echo "❌ Chrome Web Store API error: $(echo "$STATUS_RESPONSE" | jq -r .error.message)"
         return 1
     fi
     
-    STATUS=$(echo "$STATUS_RESPONSE" | jq -r .status)
-    echo "✅ Chrome Web Store status: $STATUS"
+    # Handle different response formats for API V1 vs V2
+    if [ -n "$PUBLISHER_ID" ]; then
+        # API V2 response format
+        STATUS=$(echo "$STATUS_RESPONSE" | jq -r .itemState // .status // "UNKNOWN")
+        UPLOAD_STATE=$(echo "$STATUS_RESPONSE" | jq -r .uploadState // "UNKNOWN")
+        echo "✅ Chrome Web Store status: $STATUS"
+        echo "📤 Upload state: $UPLOAD_STATE"
+    else
+        # API V1 response format
+        STATUS=$(echo "$STATUS_RESPONSE" | jq -r .status)
+        echo "✅ Chrome Web Store status: $STATUS"
+    fi
     
     case "$STATUS" in
-        "PENDING_PUBLICATION")
+        "PENDING_PUBLICATION"|"PENDING_REVIEW")
             echo "📝 Extension is pending review"
             ;;
         "PUBLISHED")
             echo "🎉 Extension is published and live"
             ;;
-        "IN_PROGRESS")
+        "IN_PROGRESS"|"IN_REVIEW")
             echo "⏳ Extension review is in progress"
+            ;;
+        "UPLOAD_SUCCESS")
+            echo "✅ Extension uploaded successfully, ready to publish"
+            ;;
+        "UPLOAD_FAILURE")
+            echo "❌ Extension upload failed"
             ;;
         *)
             echo "ℹ️ Extension status: $STATUS"
+            if [ -n "$UPLOAD_STATE" ] && [ "$UPLOAD_STATE" != "UNKNOWN" ]; then
+                echo "ℹ️ Upload state: $UPLOAD_STATE"
+            fi
             ;;
     esac
 }
