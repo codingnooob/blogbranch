@@ -266,17 +266,15 @@ jobs:
           echo "Chrome ZIP: $CHROME_ZIP_PATH"
           echo "Firefox: $FIREFOX_XPI_PATH"
 
-      - name: Deploy to Chrome Web Store (API V2 Two-Step)
+      - name: Deploy to Chrome Web Store (Service Account)
         id: chrome-deploy
         run: |
-          chmod +x scripts/test-api-v2-two-step.sh
-          ./scripts/test-api-v2-two-step.sh
+          chmod +x scripts/test-api-v2-service-account.sh
+          ./scripts/test-api-v2-service-account.sh
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT: ${{ secrets.CHROME_SERVICE_ACCOUNT }}
+          CHROME_PROJECT_ID: ${{ secrets.CHROME_PROJECT_ID }}
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
@@ -292,7 +290,7 @@ jobs:
         if: success()
         run: |
           echo "🚀 Store Deployment Successful"
-          echo "✅ Chrome Web Store: ZIP file uploaded via API V2 (two-step process)"
+          echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (API V2)"
           echo "✅ Firefox Add-ons: XPI submitted for review"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "Check individual store dashboards for approval status"
@@ -302,7 +300,7 @@ jobs:
         run: |
           echo "❌ Store Deployment Failed"
           echo "Please check workflow logs for details"
-          echo "**Chrome Web Store**: Check ZIP file, API V2 credentials, and two-step process"
+          echo "**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup"
           echo "**Firefox Add-ons**: Check XPI package and API credentials"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
@@ -317,7 +315,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Check ZIP file, API V2 credentials, and two-step process\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
               });
             }
 
