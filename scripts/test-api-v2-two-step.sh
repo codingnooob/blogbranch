@@ -55,7 +55,7 @@ ACCESS_TOKEN_RESPONSE=$(curl -s -X POST \
     -d "refresh_token=$REFRESH_TOKEN" \
     -d "grant_type=refresh_token")
 
-ACCESS_TOKEN=$(echo "$ACCESS_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*' | sed 's/"access_token":"//')
+ACCESS_TOKEN=$(echo "$ACCESS_TOKEN_RESPONSE" | grep -o '"access_token": *"[^"]*' | sed 's/"access_token": *"//')
 
 if [[ -z "$ACCESS_TOKEN" ]]; then
     echo "❌ Failed to get access token:"
