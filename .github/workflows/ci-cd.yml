@@ -215,27 +215,22 @@ jobs:
           # Set private key path for workflow
           echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
           
-          # Generate CRX file for Chrome deployment with private key
-          npm run package:crx
+ # Skip CRX generation in CI - use ZIP for Chrome Web Store deployment
+          echo "📦 Using ZIP package for Chrome Web Store deployment (CI environment)"
           
           # Copy existing artifacts with version numbers
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
-          # Check if CRX was created successfully
-          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
-            echo "⚠️ CRX file not found, but ZIP package is available for deployment"
-            echo "Chrome Web Store deployment will use ZIP file"
-            # Create unsigned CRX as fallback for local development
-            cp blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx
-            echo "📦 Created fallback CRX from ZIP for compatibility"
-          fi
+          # Create CRX placeholder for local development compatibility
+          cp blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx
+          echo "📦 Created CRX placeholder from ZIP for compatibility"
           
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
           ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
           
-          # Ensure ZIP file exists for Chrome deployment (CRX is optional)
+          # Ensure ZIP file exists for Chrome deployment
           if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
             echo "❌ Chrome ZIP file not found - deployment cannot continue"
             exit 1
