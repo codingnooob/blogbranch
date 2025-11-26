@@ -266,15 +266,18 @@ jobs:
           echo "Chrome ZIP: $CHROME_ZIP_PATH"
           echo "Firefox: $FIREFOX_XPI_PATH"
 
+      - name: Install Chrome Web Store CLI
+        run: npm install -g chrome-webstore-upload-cli
+
       - name: Deploy to Chrome Web Store
         id: chrome-deploy
-        uses: cardinalby/webext-buildtools-chrome-webstore-upload-action@v1
-        with:
-          zipFilePath: ${{ env.CHROME_ZIP_PATH }}
-          extensionId: ${{ secrets.CHROME_EXTENSION_ID }}
-          apiClientId: ${{ secrets.CHROME_CLIENT_ID }}
-          apiClientSecret: ${{ secrets.CHROME_CLIENT_SECRET }}
-          apiRefreshToken: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          chrome-webstore-upload upload \
+            --source ${{ env.CHROME_ZIP_PATH }} \
+            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
+            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
+            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
