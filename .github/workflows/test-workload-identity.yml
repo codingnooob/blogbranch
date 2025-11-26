@@ -13,16 +13,76 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/setup-gcloud@v1
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v1
         with:
-          project_id: ${{ secrets.CHROME_PROJECT_ID }}
-          service_account_key: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-          export_default_credentials: true
+          workload_identity_provider: 'projects/413467977054/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com'
 
       - name: Test authentication
         run: |
-          echo "Testing authentication..."
-          gcloud auth list
-          gcloud projects list
-          echo "Authentication test complete"
+          echo "🔐 Testing Workload Identity Federation authentication..."
+          ACCESS_TOKEN=$(gcloud auth print-access-token --scopes=https://www.googleapis.com/auth/chromewebstore)
+          echo "✅ Access token obtained successfully"
+          echo "🔑 Token preview: ${ACCESS_TOKEN:0:20}..."
+          
+          # Test basic API call
+          echo "📡 Testing Chrome Web Store API access..."
+          TEST_RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://chromewebstore.googleapis.com/v2/items/${{ secrets.CHROME_EXTENSION_ID }}" \
+            -w "%{http_code}")
+          
+          if [ "$TEST_RESPONSE" == "200" ]; then
+            echo "✅ Chrome Web Store API access verified"
+          else
+            echo "❌ API access failed with status: $TEST_RESPONSE"
+            echo "Response: $TEST_RESPONSE"
+          fi
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+
+      - name: Test Chrome Web Store deployment
+        run: |
+          echo "🚀 Testing Chrome Web Store deployment process..."
+          
+          # Create a test ZIP file
+          VERSION="test-$(date +%s)"
+          echo "Creating test version: $VERSION"
+          
+          # Build extension
+          npm install --legacy-peer-deps
+          npm run build
+          npm run build:zip
+          
+          # Rename for testing
+          cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
+          CHROME_ZIP_PATH="blog-link-analyzer-${VERSION}.zip"
+          
+          echo "📦 Test ZIP file: $CHROME_ZIP_PATH"
+          
+          # Test upload
+          ACCESS_TOKEN=$(gcloud auth print-access-token --scopes=https://www.googleapis.com/auth/chromewebstore)
+          echo "🔐 Using access token for upload..."
+          
+          UPLOAD_RESPONSE=$(curl -X POST \
+            "https://chromewebstore.googleapis.com/upload/v2/items/${{ secrets.CHROME_EXTENSION_ID }}?uploadType=PACKAGE" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -F "data=@$CHROME_ZIP_PATH" \
+            -w "%{http_code}")
+          
+          echo "📤 Upload response: $UPLOAD_RESPONSE"
+          
+          if [ "$UPLOAD_RESPONSE" == "200" ]; then
+            echo "✅ Upload test successful"
+          else
+            echo "❌ Upload test failed: $UPLOAD_RESPONSE"
+          fi
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up test artifacts..."
+          rm -f blog-link-analyzer-test-*.zip
+          echo "✅ Cleanup complete"
