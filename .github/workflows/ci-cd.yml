@@ -96,6 +96,9 @@ jobs:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published' || github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -266,15 +269,56 @@ jobs:
           echo "Chrome ZIP: $CHROME_ZIP_PATH"
           echo "Firefox: $FIREFOX_XPI_PATH"
 
-      - name: Deploy to Chrome Web Store (Service Account)
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: 'projects/413467977054/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com'
+
+      - name: Deploy to Chrome Web Store (Workload Identity Federation)
         id: chrome-deploy
         run: |
-          chmod +x scripts/test-api-v2-service-account.sh
-          ./scripts/test-api-v2-service-account.sh
+          ACCESS_TOKEN=$(gcloud auth print-access-token --scopes=https://www.googleapis.com/auth/chromewebstore)
+          echo "🔐 Using Workload Identity Federation for Chrome Web Store API V2"
+          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
+          echo "🔑 Access Token: ${ACCESS_TOKEN:0:20}..."
+          
+          # Upload ZIP package
+          UPLOAD_RESPONSE=$(curl -X POST \
+            "https://chromewebstore.googleapis.com/upload/v2/items/$CHROME_EXTENSION_ID?uploadType=PACKAGE" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-key: $CHROME_API_KEY" \
+            -F "data=@$CHROME_ZIP_PATH" \
+            -w "%{http_code}")
+          
+          echo "📤 Upload response: $UPLOAD_RESPONSE"
+          
+          if [ "$UPLOAD_RESPONSE" != "200" ]; then
+            echo "❌ Upload failed with status: $UPLOAD_RESPONSE"
+            exit 1
+          fi
+          
+          # Publish the extension
+          PUBLISH_RESPONSE=$(curl -X POST \
+            "https://chromewebstore.googleapis.com/publish/v2/items/$CHROME_EXTENSION_ID" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-key: $CHROME_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"target": "TRUSTED_TESTERS"}' \
+            -w "%{http_code}")
+          
+          echo "🚀 Publish response: $PUBLISH_RESPONSE"
+          
+          if [ "$PUBLISH_RESPONSE" != "200" ]; then
+            echo "❌ Publish failed with status: $PUBLISH_RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Chrome Web Store deployment completed successfully!"
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_SERVICE_ACCOUNT: ${{ secrets.CHROME_SERVICE_ACCOUNT }}
-          CHROME_PROJECT_ID: ${{ secrets.CHROME_PROJECT_ID }}
+          CHROME_API_KEY: ${{ secrets.CHROME_API_KEY }}
+          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
         continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
