@@ -1,0 +1,28 @@
+name: Test Workload Identity Federation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-workload-identity:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.CHROME_PROJECT_ID }}
+          service_account_key: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          export_default_credentials: true
+
+      - name: Test authentication
+        run: |
+          echo "Testing authentication..."
+          gcloud auth list
+          gcloud projects list
+          echo "Authentication test complete"
