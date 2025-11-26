@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 import { fileURLToPath } from 'url';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,12 +75,15 @@ async function createChromeCRX() {
   
   try {
     // Check for private key
-    const privateKeyPath = 'chrome-extension.pem';
     let privateKey = null;
+    const privateKeyPath = process.env.CHROME_CRX_PRIVATE_KEY_PATH || 'chrome-extension.pem';
     
     if (fs.existsSync(privateKeyPath)) {
       privateKey = fs.readFileSync(privateKeyPath, 'utf8');
       console.log('🔐 Using private key for CRX signing');
+    } else if (fs.existsSync('test-key.pem')) {
+      privateKey = fs.readFileSync('test-key.pem', 'utf8');
+      console.log('🔐 Using test private key for CRX signing');
     } else {
       console.log('⚠️  No private key found, creating unsigned CRX');
     }
@@ -201,32 +205,34 @@ function createCRX(zipData) {
 }
 
 function createSignedCRX(zipData, privateKey) {
-  const crypto = require('node:crypto');
-  
-  // CRX magic number for version 3 (signed)
-  const CRX_MAGIC = 0x43723203;
-  
-  // Create CRX header for version 3
-  const publicKey = crypto.createPublicKey('-----BEGIN PUBLIC KEY-----\n' + 
-    crypto.createPublicKey(privateKey).exportKey('pem').publicKey + 
-    '\n-----END PUBLIC KEY-----');
-  
-  // Create signature
-  const signature = crypto.createSign('RSA-SHA256').update(zipData).sign(privateKey);
-  
-  // Calculate header sizes
-  const publicKeySize = publicKey.length;
-  const signatureSize = signature.length;
-  const headerSize = 16 + publicKeySize + signatureSize;
-  
-  // Create CRX header
-  const header = Buffer.alloc(16);
-  header.writeUInt32LE(CRX_MAGIC, 0);        // Magic number
-  header.writeUInt32LE(3, 4);              // Version 3
-  header.writeUInt32LE(headerSize, 8);       // Header size
-  header.writeUInt32LE(zipData.length, 12);    // ZIP size
-  
-  return Buffer.concat([header, publicKey, signature, zipData]);
+  try {
+    // CRX magic number for version 3 (signed)
+    const CRX_MAGIC = 0x43723203;
+    
+    // Create public key from private key
+    const publicKeyObject = crypto.createPublicKey(privateKey);
+    const publicKeyDer = publicKeyObject.export({ format: 'der', type: 'spki' });
+    
+    // Create signature
+    const signature = crypto.createSign('RSA-SHA256').update(zipData).sign(privateKey);
+    
+    // Calculate header sizes
+    const publicKeySize = publicKeyDer.length;
+    const signatureSize = signature.length;
+    const headerSize = 16 + publicKeySize + signatureSize;
+    
+    // Create CRX header
+    const header = Buffer.alloc(16);
+    header.writeUInt32LE(CRX_MAGIC, 0);        // Magic number
+    header.writeUInt32LE(3, 4);              // Version 3
+    header.writeUInt32LE(headerSize, 8);       // Header size
+    header.writeUInt32LE(zipData.length, 12);    // ZIP size
+    
+    return Buffer.concat([header, publicKeyDer, signature, zipData]);
+  } catch (error) {
+    console.error(`❌ Signed CRX creation failed: ${error.message}`);
+    throw error;
+  }
 }
 
 function copyDirectory(src, dest) {

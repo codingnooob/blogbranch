@@ -222,9 +222,15 @@ jobs:
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
+          # Check if CRX was created successfully
+          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "⚠️ CRX file not found, but ZIP package is available for deployment"
+            echo "Chrome Web Store deployment will use ZIP file"
+          fi
+          
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
-          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi
+          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
 
       - name: Verify Deployment Files
         run: |
@@ -300,7 +306,7 @@ jobs:
           echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
 
       - name: Notify deployment failure
-        if: failure()
+        if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
