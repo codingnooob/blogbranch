@@ -218,6 +218,10 @@ jobs:
             echo "🔐 Using verified CRX private key from GitHub Secrets"
             chmod 600 chrome-extension.pem
             
+            # Debug: Show first few characters (without exposing key)
+            echo "🔍 Debug: Secret length: $(echo "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" | wc -c)"
+            echo "🔍 Debug: Secret starts with: $(echo "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" | head -c 20)..."
+            
             # Validate private key format
             if ! openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
               echo "⚠️ Invalid private key format in GitHub Secret"
