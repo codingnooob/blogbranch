@@ -204,10 +204,8 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
           # Use verified CRX private key from GitHub Secrets with fallback
-          # Store secret in a temporary variable to avoid syntax issues
-          CHROME_KEY="${{ secrets.CHROME_CRX_PRIVATE_KEY }}"
-          
-          if [[ -z "$CHROME_KEY" ]]; then
+          # Check if secret exists using a safe method
+          if [[ -z "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" ]]; then
             echo "⚠️ CHROME_CRX_PRIVATE_KEY secret not found"
             echo "🔄 Falling back to generated key for testing"
             echo "⚠️ Chrome Web Store will reject this - please add verified key as GitHub Secret"
@@ -216,8 +214,11 @@ jobs:
             openssl genrsa -out chrome-extension.pem 2048
             echo "🔐 Generated temporary CRX private key for testing"
           else
-            # Write private key from GitHub Secrets to temporary file
-            echo "$CHROME_KEY" > chrome-extension.pem
+            # Write private key from GitHub Secrets to temporary file using heredoc
+            # This safely handles multi-line PEM content without bash interpretation
+            cat > chrome-extension.pem << 'EOF'
+${{ secrets.CHROME_CRX_PRIVATE_KEY }}
+EOF
             echo "🔐 Using verified CRX private key from GitHub Secrets"
             chmod 600 chrome-extension.pem
             
