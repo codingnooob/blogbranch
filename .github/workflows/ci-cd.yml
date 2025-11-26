@@ -217,7 +217,7 @@ jobs:
             # Write private key from GitHub Secrets to temporary file using heredoc
             # This safely handles multi-line PEM content without bash interpretation
             cat > chrome-extension.pem << 'EOF'
-${{ secrets.CHROME_CRX_PRIVATE_KEY }}
+            ${{ secrets.CHROME_CRX_PRIVATE_KEY }}
 EOF
             echo "🔐 Using verified CRX private key from GitHub Secrets"
             chmod 600 chrome-extension.pem
