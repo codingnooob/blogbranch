@@ -226,9 +226,8 @@ jobs:
             echo "⚠️ OpenSSL encrypted secrets not configured - using fallback method"
             
             # Fallback to original method for backward compatibility
-            cat > chrome-extension.pem << 'EOF'
-            ${{ secrets.CHROME_CRX_PRIVATE_KEY }}
-            EOF
+            # Use printf to avoid heredoc issues with multi-line secrets
+            printf '%s\n' "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" > chrome-extension.pem
             
             # Clean and normalize PEM file
             sed -i 's/\r$//' chrome-extension.pem  # Remove Windows line endings
