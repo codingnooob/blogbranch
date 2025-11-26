@@ -73,6 +73,17 @@ async function createChromeCRX() {
   console.log(`🔧 Creating Chrome CRX package for version ${VERSION}...`);
   
   try {
+    // Check for private key
+    const privateKeyPath = 'chrome-extension.pem';
+    let privateKey = null;
+    
+    if (fs.existsSync(privateKeyPath)) {
+      privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+      console.log('🔐 Using private key for CRX signing');
+    } else {
+      console.log('⚠️  No private key found, creating unsigned CRX');
+    }
+    
     // Create CRX using Node.js (Chrome CLI alternative)
     
     // Create temporary directory for CRX build
@@ -145,7 +156,17 @@ async function createChromeCRX() {
     
     // Convert ZIP to CRX format
     const zipData = fs.readFileSync(path.join(crxBuildDir, 'extension.zip'));
-    const crxData = createCRX(zipData);
+    let crxData;
+    
+    if (privateKey) {
+      // Create signed CRX using private key
+      console.log('🔐 Creating signed CRX package...');
+      crxData = createSignedCRX(zipData, privateKey);
+    } else {
+      // Create unsigned CRX
+      console.log('📦 Creating unsigned CRX package...');
+      crxData = createCRX(zipData);
+    }
     
     // Write CRX file
     const crxFile = `blog-link-analyzer-${VERSION}.crx`;
@@ -177,6 +198,35 @@ function createCRX(zipData) {
   header.writeUInt32LE(zipData.length, 8);    // ZIP size
   
   return Buffer.concat([header, zipData]);
+}
+
+function createSignedCRX(zipData, privateKey) {
+  const crypto = require('crypto');
+  
+  // CRX magic number for version 3 (signed)
+  const CRX_MAGIC = 0x43723203;
+  
+  // Create CRX header for version 3
+  const publicKey = crypto.createPublicKey('-----BEGIN PUBLIC KEY-----\n' + 
+    crypto.createPublicKey(privateKey).exportKey('pem').publicKey + 
+    '\n-----END PUBLIC KEY-----');
+  
+  // Create signature
+  const signature = crypto.createSign('RSA-SHA256').update(zipData).sign(privateKey);
+  
+  // Calculate header sizes
+  const publicKeySize = publicKey.length;
+  const signatureSize = signature.length;
+  const headerSize = 16 + publicKeySize + signatureSize;
+  
+  // Create CRX header
+  const header = Buffer.alloc(16);
+  header.writeUInt32LE(CRX_MAGIC, 0);        // Magic number
+  header.writeUInt32LE(3, 4);              // Version 3
+  header.writeUInt32LE(headerSize, 8);       // Header size
+  header.writeUInt32LE(zipData.length, 12);    // ZIP size
+  
+  return Buffer.concat([header, publicKey, signature, zipData]);
 }
 
 function copyDirectory(src, dest) {

@@ -203,7 +203,19 @@ jobs:
           VERSION=$(node -p 'require("./package.json").version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
-          # Generate CRX file for Chrome deployment
+          # Generate or use CRX private key for Chrome Web Store
+          if [ ! -f "chrome-extension.pem" ]; then
+            echo "🔐 Generating new CRX private key..."
+            openssl genrsa -out chrome-extension.pem 2048
+            echo "✅ CRX private key generated: chrome-extension.pem"
+          else
+            echo "🔐 Using existing CRX private key: chrome-extension.pem"
+          fi
+          
+          # Set private key path for workflow
+          echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
+          
+          # Generate CRX file for Chrome deployment with private key
           npm run package:crx
           
           # Copy existing artifacts with version numbers
@@ -254,6 +266,7 @@ jobs:
         with:
           extension_id: ${{ secrets.CHROME_EXTENSION_ID }}
           zip_file_path: ${{ env.CHROME_ZIP_PATH }}
+          crx_private_key_path: ${{ env.CHROME_CRX_PRIVATE_KEY_PATH }}
           client_id: ${{ secrets.CHROME_CLIENT_ID }}
           client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh_token: ${{ secrets.CHROME_REFRESH_TOKEN }}
