@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Blog Link Analyzer",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Detects blog posts and extracts linked blog content with titles and authors",
   "permissions": [
     "activeTab",
