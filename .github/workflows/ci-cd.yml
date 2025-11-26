@@ -203,40 +203,55 @@ jobs:
           VERSION=$(node -p 'require("./package.json").version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
-          # Generate or use CRX private key for Chrome Web Store
-          if [ ! -f "chrome-extension.pem" ]; then
-            echo "🔐 Generating new CRX private key..."
-            openssl genrsa -out chrome-extension.pem 2048
-            echo "✅ CRX private key generated: chrome-extension.pem"
-          else
-            echo "🔐 Using existing CRX private key: chrome-extension.pem"
+          # Use verified CRX private key from GitHub Secrets
+          if [[ -z "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" ]]; then
+            echo "❌ CHROME_CRX_PRIVATE_KEY secret not found"
+            echo "Please add your verified CRX private key as a GitHub Secret"
+            exit 1
           fi
+          
+          # Write private key from GitHub Secrets to temporary file
+          echo "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" > chrome-extension.pem
+          echo "🔐 Using verified CRX private key from GitHub Secrets"
+          chmod 600 chrome-extension.pem
           
           # Set private key path for workflow
           echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
           
-          # Skip CRX generation in CI - use ZIP for Chrome Web Store deployment
-          echo "📦 Using ZIP package for Chrome Web Store deployment (CI environment)"
+          # Generate signed CRX file for Chrome Web Store deployment
+          npm run package:crx
           
           # Copy existing artifacts with version numbers
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
-          # Create CRX placeholder for local development compatibility
-          cp blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx
-          echo "📦 Created CRX placeholder from ZIP for compatibility"
+          # Verify CRX file was created successfully
+          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "❌ CRX file not found - Chrome Web Store deployment will fail"
+            echo "Available files:"
+            ls -la blog-link-analyzer-${VERSION}.*
+            exit 1
+          else
+            echo "✅ Signed CRX file created successfully"
+            ls -la blog-link-analyzer-${VERSION}.crx
+          fi
           
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
           ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
           
-          # Ensure ZIP file exists for Chrome deployment
+          # Ensure both ZIP and CRX files exist for Chrome deployment
           if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
             echo "❌ Chrome ZIP file not found - deployment cannot continue"
             exit 1
           fi
           
-          echo "✅ Chrome ZIP file ready for deployment"
+          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "❌ Chrome CRX file not found - Chrome Web Store deployment will fail"
+            exit 1
+          fi
+          
+          echo "✅ Chrome ZIP and CRX files ready for deployment"
 
       - name: Verify Deployment Files
         run: |
@@ -276,7 +291,7 @@ jobs:
         id: chrome-deploy
         uses: mnao305/chrome-extension-upload@v5.0.0
         with:
-          file-path: ${{ env.CHROME_ZIP_PATH }}
+          file-path: ${{ env.CHROME_CRX_PATH }}
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -298,8 +313,8 @@ jobs:
         if: success()
         run: |
           echo "🚀 Store Deployment Successful"
-          echo "✅ Chrome Web Store: Submitted for review"
-          echo "✅ Firefox Add-ons: Submitted for review"
+          echo "✅ Chrome Web Store: Signed CRX submitted for review"
+          echo "✅ Firefox Add-ons: XPI submitted for review"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "Check individual store dashboards for approval status"
 
@@ -308,6 +323,8 @@ jobs:
         run: |
           echo "❌ Store Deployment Failed"
           echo "Please check workflow logs for details"
+          echo "**Chrome Web Store**: Requires signed CRX with verified private key"
+          echo "**Firefox Add-ons**: Check XPI package and API credentials"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
 
@@ -321,7 +338,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Requires signed CRX with verified private key\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
               });
             }
 
