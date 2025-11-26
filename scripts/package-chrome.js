@@ -242,7 +242,9 @@ async function createChromePackage() {
     
   } catch (error) {
     console.error(`❌ CRX generation failed: ${error.message}`);
-    console.log('📦 Continuing with ZIP package only...');
+    console.error('🔍 Error details:', error);
+    console.error('💡 This is required for Chrome Web Store deployment');
+    process.exit(1);
   }
   
   console.log('🎉 Chrome packaging completed!');
