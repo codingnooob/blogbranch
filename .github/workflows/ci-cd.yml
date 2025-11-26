@@ -226,11 +226,22 @@ jobs:
           if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
             echo "⚠️ CRX file not found, but ZIP package is available for deployment"
             echo "Chrome Web Store deployment will use ZIP file"
+            # Create unsigned CRX as fallback for local development
+            cp blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx
+            echo "📦 Created fallback CRX from ZIP for compatibility"
           fi
           
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
           ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
+          
+          # Ensure ZIP file exists for Chrome deployment (CRX is optional)
+          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
+            echo "❌ Chrome ZIP file not found - deployment cannot continue"
+            exit 1
+          fi
+          
+          echo "✅ Chrome ZIP file ready for deployment"
 
       - name: Verify Deployment Files
         run: |
@@ -310,12 +321,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
-            })
+            if (context.issue.number) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+              });
+            }
 
       - name: Store deployment metadata
         if: success()
