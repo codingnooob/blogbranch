@@ -206,8 +206,8 @@ jobs:
           # Use verified CRX private key from GitHub Secrets with fallback
           # Try to write the secret directly to file - if it doesn't exist, this will create an empty file
           cat > chrome-extension.pem << 'EOF'
-${{ secrets.CHROME_CRX_PRIVATE_KEY }}
-EOF
+          ${{ secrets.CHROME_CRX_PRIVATE_KEY }}
+          EOF
           
           # Check if the file has content (safer than checking the secret directly)
           if [[ ! -s chrome-extension.pem ]]; then
