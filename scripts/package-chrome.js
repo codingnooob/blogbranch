@@ -209,12 +209,20 @@ function createSignedCRX(zipData, privateKey) {
     // CRX magic number for version 3 (signed)
     const CRX_MAGIC = 0x43723203;
     
+    // Clean private key format and ensure proper PEM structure
+    let cleanPrivateKey = privateKey.trim();
+    
+    // Ensure proper PEM headers if missing
+    if (!cleanPrivateKey.includes('-----BEGIN')) {
+      cleanPrivateKey = `-----BEGIN RSA PRIVATE KEY-----\n${cleanPrivateKey}\n-----END RSA PRIVATE KEY-----`;
+    }
+    
     // Create public key from private key
-    const publicKeyObject = crypto.createPublicKey(privateKey);
+    const publicKeyObject = crypto.createPublicKey(cleanPrivateKey);
     const publicKeyDer = publicKeyObject.export({ format: 'der', type: 'spki' });
     
     // Create signature
-    const signature = crypto.createSign('RSA-SHA256').update(zipData).sign(privateKey);
+    const signature = crypto.createSign('RSA-SHA256').update(zipData).sign(cleanPrivateKey);
     
     // Calculate header sizes
     const publicKeySize = publicKeyDer.length;
@@ -231,6 +239,8 @@ function createSignedCRX(zipData, privateKey) {
     return Buffer.concat([header, publicKeyDer, signature, zipData]);
   } catch (error) {
     console.error(`❌ Signed CRX creation failed: ${error.message}`);
+    console.error(`🔍 Debug info: Private key length: ${privateKey ? privateKey.length : 'null'}`);
+    console.error(`🔍 Debug info: Private key starts with: ${privateKey ? privateKey.substring(0, 20) : 'null'}...`);
     throw error;
   }
 }

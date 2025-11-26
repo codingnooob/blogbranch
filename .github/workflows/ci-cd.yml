@@ -215,6 +215,14 @@ jobs:
           echo "🔐 Using verified CRX private key from GitHub Secrets"
           chmod 600 chrome-extension.pem
           
+          # Validate private key format
+          if ! openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
+            echo "❌ Invalid private key format"
+            echo "Please ensure CHROME_CRX_PRIVATE_KEY contains a valid RSA private key in PEM format"
+            exit 1
+          fi
+          echo "✅ Private key format validated"
+          
           # Set private key path for workflow
           echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
           
