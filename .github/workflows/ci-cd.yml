@@ -95,7 +95,7 @@ jobs:
   store-deployment:
     needs: [test, security-scan]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release' && github.event.action == 'published' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
