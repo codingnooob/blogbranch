@@ -2,3 +2,10 @@ www.lesswrong.com.har
 *.pem
 STORE_DEPLOYMENT_CREDENTIALS.md
 DEPLOYMENT_ENVIRONMENT.md
+
+# Package files - generated during build/release
+*.zip
+*.crx
+*.xpi
+blog-link-analyzer-*
+blog-link-analyzer-firefox-*

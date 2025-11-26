@@ -17,7 +17,8 @@
     "package": "node scripts/package-chrome.js",
     "package:firefox": "node scripts/package-firefox.js",
     "package:all": "npm run package && npm run package:firefox",
-    "package:all-formats": "npm run package && npm run package:firefox"
+    "package:all-formats": "npm run package && npm run package:firefox",
+    "package:crx": "node scripts/package-chrome.js"
   },
   "keywords": [
     "blog",
