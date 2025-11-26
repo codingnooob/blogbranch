@@ -204,10 +204,16 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
           # Use verified CRX private key from GitHub Secrets with fallback
-          # Try to write the secret directly to file - if it doesn't exist, this will create an empty file
+          # Write secret to file with proper PEM formatting
           cat > chrome-extension.pem << 'EOF'
-          ${{ secrets.CHROME_CRX_PRIVATE_KEY }}
-          EOF
+${{ secrets.CHROME_CRX_PRIVATE_KEY }}
+EOF
+          
+          # Clean and normalize the PEM file
+          sed -i 's/\r$//' chrome-extension.pem  # Remove Windows line endings
+          sed -i '/^$/d' chrome-extension.pem      # Remove empty lines
+          sed -i 's/^[[:space:]]*//' chrome-extension.pem  # Remove leading whitespace
+          sed -i 's/[[:space:]]*$//' chrome-extension.pem  # Remove trailing whitespace
           
           # Check if the file has content (safer than checking the secret directly)
           if [[ ! -s chrome-extension.pem ]]; then
@@ -222,20 +228,39 @@ jobs:
             echo "🔐 Using verified CRX private key from GitHub Secrets"
             chmod 600 chrome-extension.pem
             
-            # Debug: Show secret info (without exposing key)
-            echo "🔍 Debug: Secret exists and has content"
+            # Debug: Show file info (without exposing key)
+            echo "🔍 Debug: PEM file exists with $(wc -l < chrome-extension.pem) lines"
+            echo "🔍 Debug: File size: $(stat -c%s chrome-extension.pem) bytes"
+            echo "🔍 Debug: First line: $(head -n1 chrome-extension.pem)"
+            echo "🔍 Debug: Last line: $(tail -n1 chrome-extension.pem)"
             
-            # Validate private key format
-            if ! openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
-              echo "⚠️ Invalid private key format in GitHub Secret"
-              echo "🔄 Falling back to generated key for testing"
-              echo "⚠️ Please fix CHROME_CRX_PRIVATE_KEY format"
-              
-              # Generate fallback key
-              openssl genrsa -out chrome-extension.pem 2048
-              echo "🔐 Generated fallback CRX private key"
+            # Validate private key format with detailed error output
+            if openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
+              echo "✅ Private key format validated with OpenSSL"
             else
-              echo "✅ Private key format validated"
+              echo "⚠️ OpenSSL validation failed, showing details:"
+              openssl rsa -in chrome-extension.pem -check -noout 2>&1 | head -5
+              echo ""
+              echo "🔄 Attempting to fix common PEM format issues..."
+              
+              # Try to fix common PEM issues
+              if ! grep -q "BEGIN" chrome-extension.pem; then
+                echo "🔧 Adding missing PEM headers..."
+                sed -i '1i-----BEGIN PRIVATE KEY-----' chrome-extension.pem
+                sed -i '$a-----END PRIVATE KEY-----' chrome-extension.pem
+              fi
+              
+              # Final validation attempt
+              if openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
+                echo "✅ Private key format fixed and validated"
+              else
+                echo "⚠️ Still invalid - falling back to generated key"
+                echo "⚠️ Chrome Web Store will reject this - please fix CHROME_CRX_PRIVATE_KEY"
+                
+                # Generate fallback key
+                openssl genrsa -out chrome-extension.pem 2048
+                echo "🔐 Generated fallback CRX private key"
+              fi
             fi
           fi
           
