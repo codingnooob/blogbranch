@@ -215,7 +215,7 @@ jobs:
           # Set private key path for workflow
           echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
           
- # Skip CRX generation in CI - use ZIP for Chrome Web Store deployment
+          # Skip CRX generation in CI - use ZIP for Chrome Web Store deployment
           echo "📦 Using ZIP package for Chrome Web Store deployment (CI environment)"
           
           # Copy existing artifacts with version numbers
