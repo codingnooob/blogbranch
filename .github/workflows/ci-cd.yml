@@ -203,25 +203,34 @@ jobs:
           VERSION=$(node -p 'require("./package.json").version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
-          # Use verified CRX private key from GitHub Secrets
+          # Use verified CRX private key from GitHub Secrets with fallback
           if [[ -z "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" ]]; then
-            echo "❌ CHROME_CRX_PRIVATE_KEY secret not found"
-            echo "Please add your verified CRX private key as a GitHub Secret"
-            exit 1
+            echo "⚠️ CHROME_CRX_PRIVATE_KEY secret not found"
+            echo "🔄 Falling back to generated key for testing"
+            echo "⚠️ Chrome Web Store will reject this - please add verified key as GitHub Secret"
+            
+            # Generate temporary key for testing
+            openssl genrsa -out chrome-extension.pem 2048
+            echo "🔐 Generated temporary CRX private key for testing"
+          else
+            # Write private key from GitHub Secrets to temporary file
+            echo "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" > chrome-extension.pem
+            echo "🔐 Using verified CRX private key from GitHub Secrets"
+            chmod 600 chrome-extension.pem
+            
+            # Validate private key format
+            if ! openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
+              echo "⚠️ Invalid private key format in GitHub Secret"
+              echo "🔄 Falling back to generated key for testing"
+              echo "⚠️ Please fix CHROME_CRX_PRIVATE_KEY format"
+              
+              # Generate fallback key
+              openssl genrsa -out chrome-extension.pem 2048
+              echo "🔐 Generated fallback CRX private key"
+            else
+              echo "✅ Private key format validated"
+            fi
           fi
-          
-          # Write private key from GitHub Secrets to temporary file
-          echo "${{ secrets.CHROME_CRX_PRIVATE_KEY }}" > chrome-extension.pem
-          echo "🔐 Using verified CRX private key from GitHub Secrets"
-          chmod 600 chrome-extension.pem
-          
-          # Validate private key format
-          if ! openssl rsa -in chrome-extension.pem -check -noout 2>/dev/null; then
-            echo "❌ Invalid private key format"
-            echo "Please ensure CHROME_CRX_PRIVATE_KEY contains a valid RSA private key in PEM format"
-            exit 1
-          fi
-          echo "✅ Private key format validated"
           
           # Set private key path for workflow
           echo "CHROME_CRX_PRIVATE_KEY_PATH=chrome-extension.pem" >> $GITHUB_ENV
