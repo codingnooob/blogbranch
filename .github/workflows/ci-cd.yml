@@ -218,13 +218,13 @@ jobs:
         run: |
           echo "🔍 Verifying deployment files exist..."
           echo "VERSION from env: ${{ env.VERSION }}"
-          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.crx"
-          if [ -f "blog-link-analyzer-${{ env.VERSION }}.crx" ]; then
-            echo "✅ Chrome CRX found"
+          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.zip"
+          if [ -f "blog-link-analyzer-${{ env.VERSION }}.zip" ]; then
+            echo "✅ Chrome ZIP found"
           else
-            echo "❌ Chrome CRX NOT found"
-            echo "Available CRX files:"
-            ls -la *.crx 2>/dev/null || echo "No CRX files found"
+            echo "❌ Chrome ZIP NOT found"
+            echo "Available ZIP files:"
+            ls -la *.zip 2>/dev/null || echo "No ZIP files found"
           fi
           echo "Looking for: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi"
           if [ -f "blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" ]; then
@@ -253,7 +253,7 @@ jobs:
         uses: wdzeng/chrome-extension@v1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip-path: ${{ env.CHROME_CRX_PATH }}
+          zip-path: ${{ env.CHROME_ZIP_PATH }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
@@ -304,7 +304,7 @@ jobs:
         run: |
           echo "DEPLOYMENT_VERSION=${{ github.event.release.tag_name }}" >> deployment.env
           echo "DEPLOYMENT_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deployment.env
-          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.crx" >> deployment.env
+          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.zip" >> deployment.env
           echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" >> deployment.env
 
       - name: Upload deployment metadata
