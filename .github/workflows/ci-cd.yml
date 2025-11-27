@@ -282,7 +282,16 @@ jobs:
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
           
+          # Install chrome-webstore-upload-cli for V2 API compatibility
+          echo "📦 Installing chrome-webstore-upload-cli..."
+          npm install chrome-webstore-upload-cli
+          
+          # Verify CLI installation
+          echo "🔍 Verifying CLI installation..."
+          npx chrome-webstore-upload-cli --help
+          
           # Install dependencies and deploy with OAuth2
+          echo "🚀 Running deployment script..."
           npm run deploy:chrome
           DEPLOY_EXIT_CODE=$?
           
@@ -299,25 +308,6 @@ jobs:
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-        run: |
-          echo "🚀 Deploying to Chrome Web Store using OAuth2 (Primary Method)"
-          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
-          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
-          
-          # Install chrome-webstore-upload-cli for V2 API compatibility
-          npm install chrome-webstore-upload-cli
-          
-          # Install dependencies and deploy with OAuth2
-          npm run deploy:chrome
-          DEPLOY_EXIT_CODE=$?
-          
-          if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
-            echo "CHROME_DEPLOY_SUCCESS=true" >> $GITHUB_OUTPUT
-            echo "✅ OAuth2 deployment succeeded"
-          else
-            echo "CHROME_DEPLOY_SUCCESS=false" >> $GITHUB_OUTPUT
-            echo "❌ OAuth2 deployment failed with exit code: $DEPLOY_EXIT_CODE"
-          fi
         continue-on-error: true
 
       - name: Deploy to Chrome Web Store (Service Account - Fallback)

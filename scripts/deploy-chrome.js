@@ -2,7 +2,6 @@
 
 import { exec } from 'child_process';
 import fs from 'fs';
-import path from 'path';
 
 // Configuration from environment variables
 const config = {
@@ -34,50 +33,25 @@ try {
 
   console.log('🔐 Authenticating with Chrome Web Store API...');
 
-  // Use chrome-webstore-upload-cli for V2 API compatibility
-  const uploadCmd = `npx chrome-webstore-upload-cli upload ${config.zipPath} ${config.extensionId}`;
-  const publishCmd = `npx chrome-webstore-upload-cli publish ${config.extensionId}`;
+  // Set environment variables for CLI
+  process.env.EXTENSION_ID = config.extensionId;
+  process.env.CLIENT_ID = config.clientId;
+  process.env.CLIENT_SECRET = config.clientSecret;
+  process.env.REFRESH_TOKEN = config.refreshToken;
 
-  // Upload extension
-  console.log('📤 Uploading extension...');
+  // Upload and publish extension in one command
+  console.log('📤 Uploading and publishing extension...');
+  const deployCmd = `npx chrome-webstore-upload-cli --source "${config.zipPath}"`;
+  
   await new Promise((resolve, reject) => {
-    exec(uploadCmd, (error, stdout, stderr) => {
+    exec(deployCmd, { env: { ...process.env, ...config } }, (error, stdout, stderr) => {
       if (error) {
-        console.error('❌ Upload failed:', error.message);
+        console.error('❌ Deployment failed:', error.message);
+        if (stderr) console.error('📋 Error output:', stderr);
         reject(error);
       } else {
-        console.log('✅ Upload successful');
-        console.log('📋 Upload output:', stdout);
-        resolve();
-      }
-    });
-  });
-
-  // Publish extension to trusted testers first
-  console.log('🚀 Publishing to trusted testers...');
-  await new Promise((resolve, reject) => {
-    exec(publishCmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error('❌ Trusted testers publish failed:', error.message);
-        reject(error);
-      } else {
-        console.log('✅ Published to trusted testers successfully');
-        console.log('📋 Publish output:', stdout);
-        resolve();
-      }
-    });
-  });
-
-  // Publish to all users
-  console.log('🚀 Publishing to all users...');
-  await new Promise((resolve, reject) => {
-    exec(publishCmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error('❌ Final publish failed:', error.message);
-        reject(error);
-      } else {
-        console.log('✅ Published to all users successfully');
-        console.log('📋 Final publish output:', stdout);
+        console.log('✅ Deployment successful');
+        console.log('📋 Deployment output:', stdout);
         resolve();
       }
     });

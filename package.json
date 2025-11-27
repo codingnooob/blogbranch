@@ -19,7 +19,7 @@
     "package:all": "npm run package && npm run package:firefox",
     "package:all-formats": "npm run package && npm run package:firefox",
     "package:crx": "node scripts/package-chrome.js",
-    "deploy:chrome": "chrome-webstore-upload-cli",
+    "deploy:chrome": "node scripts/deploy-chrome.js",
     "deploy:chrome-service-account": "node scripts/deploy-chrome-service-account.js",
     "deploy:chrome-simple": "node scripts/deploy-chrome-simple.js"
   },
