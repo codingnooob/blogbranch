@@ -277,8 +277,6 @@ jobs:
 
       - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
-        env:
-          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
         run: |
           echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
@@ -286,7 +284,7 @@ jobs:
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
           
           # Install dependencies and deploy with service account
-          npm run deploy:chrome-simple
+          CHROME_PUBLISHER_ID="${{ secrets.CHROME_PUBLISHER_ID }}" npm run deploy:chrome-simple
           DEPLOY_EXIT_CODE=$?
           
           if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
