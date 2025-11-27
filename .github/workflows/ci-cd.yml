@@ -275,9 +275,37 @@ jobs:
           workload_identity_provider: 'projects/413467977054/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com'
 
-      - name: Deploy to Chrome Web Store (Service Account - Primary)
+      - name: Deploy to Chrome Web Store (OAuth2 - Primary)
         id: chrome-deploy
         run: |
+          echo "🚀 Deploying to Chrome Web Store using OAuth2 (Primary Method)"
+          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
+          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
+          
+          # Install dependencies and deploy with OAuth2
+          npm run deploy:chrome
+          DEPLOY_EXIT_CODE=$?
+          
+          if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
+            echo "CHROME_DEPLOY_SUCCESS=true" >> $GITHUB_OUTPUT
+            echo "✅ OAuth2 deployment succeeded"
+          else
+            echo "CHROME_DEPLOY_SUCCESS=false" >> $GITHUB_OUTPUT
+            echo "❌ OAuth2 deployment failed with exit code: $DEPLOY_EXIT_CODE"
+          fi
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true
+
+      - name: Deploy to Chrome Web Store (Service Account - Fallback)
+        id: chrome-deploy-fallback
+        if: steps.chrome-deploy.outputs.CHROME_DEPLOY_SUCCESS == 'false'
+        run: |
+          echo "🔄 OAuth2 failed, trying Service Account approach..."
           echo "🔍 Running Chrome API diagnostic tool..."
           CHROME_PUBLISHER_ID="${{ secrets.CHROME_PUBLISHER_ID }}" node scripts/test-chrome-api.js
           
@@ -291,39 +319,12 @@ jobs:
           
           # Install dependencies and deploy with service account
           CHROME_PUBLISHER_ID="${{ secrets.CHROME_PUBLISHER_ID }}" npm run deploy:chrome-simple
-          DEPLOY_EXIT_CODE=$?
-          
-          if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
-            echo "CHROME_DEPLOY_SUCCESS=true" >> $GITHUB_OUTPUT
-            echo "✅ Service account deployment succeeded"
-          else
-            echo "CHROME_DEPLOY_SUCCESS=false" >> $GITHUB_OUTPUT
-            echo "❌ Service account deployment failed with exit code: $DEPLOY_EXIT_CODE"
-          fi
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        continue-on-error: true
-
-      - name: Deploy to Chrome Web Store (chrome-webstore-upload - Fallback)
-        id: chrome-deploy-fallback
-        if: steps.chrome-deploy.outputs.CHROME_DEPLOY_SUCCESS == 'false'
-        run: |
-          echo "🔄 Service account failed, trying chrome-webstore-upload approach..."
-          echo "🚀 Deploying to Chrome Web Store using chrome-webstore-upload package"
-          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
-          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
-          
-          # Install dependencies and deploy
-          npm run deploy:chrome
-        env:
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
 
       - name: Deploy to Firefox Add-ons
         uses: wdzeng/firefox-addon@v1
@@ -339,9 +340,9 @@ jobs:
         run: |
           echo "🚀 Store Deployment Successful"
           if [ "${{ steps.chrome-deploy.outputs.CHROME_DEPLOY_SUCCESS }}" == "true" ]; then
-            echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (API V2)"
+            echo "✅ Chrome Web Store: ZIP file uploaded via OAuth2 (Primary)"
           elif [ "${{ steps.chrome-deploy-fallback.outcome }}" == "success" ]; then
-            echo "✅ Chrome Web Store: ZIP file uploaded via chrome-webstore-upload (OAuth)"
+            echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (Fallback)"
           else
             echo "⚠️ Chrome Web Store: Deployment may have failed - check logs"
           fi
@@ -354,7 +355,7 @@ jobs:
         run: |
           echo "❌ Store Deployment Failed"
           echo "Please check workflow logs for details"
-          echo "**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup"
+          echo "**Chrome Web Store**: Check ZIP file, OAuth2 credentials (Client ID, Secret, Refresh Token), or Service Account as fallback"
           echo "**Firefox Add-ons**: Check XPI package and API credentials"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
@@ -369,7 +370,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Check ZIP file, OAuth2 credentials (Client ID, Secret, Refresh Token), or Service Account as fallback\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
               });
             }
 
