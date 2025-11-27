@@ -277,9 +277,12 @@ jobs:
 
       - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
+        env:
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
         run: |
           echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
+          echo "🏢 Publisher ID: $CHROME_PUBLISHER_ID"
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
           
           # Install dependencies and deploy with service account
