@@ -48,7 +48,7 @@ try {
     // For now, we'll use the existing package-chrome.js script to generate CRX
     try {
       await new Promise((resolve, reject) => {
-        exec('npm run package:chrome', (error, stdout, stderr) => {
+        exec('npm run package:crx', (error, stdout, stderr) => {
           if (error) {
             console.error('❌ Failed to generate CRX file:', error.message);
             reject(error);
