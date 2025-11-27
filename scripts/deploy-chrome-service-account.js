@@ -34,15 +34,13 @@ try {
   // Chrome Web Store API supports service account authentication
   console.log('🔐 Setting up service account authentication...');
   
-  // Get access token using service account key
-  const { JWT } = await import('google-auth-library');
-  const jwt = new JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY || await fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'),
+  // Get access token using Google Auth with workload identity federation
+  const auth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/chromewebstore']
   });
   
-  const accessToken = await jwt.getAccessToken();
+  const client = await auth.getClient();
+  const accessToken = await client.getAccessToken();
   
   console.log('✅ Service account authentication successful');
 
@@ -52,7 +50,7 @@ try {
   // Upload extension using Chrome Web Store API
   console.log('📤 Uploading extension...');
   
-  const uploadResponse = await fetch(`https://www.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
+  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${accessToken}`,

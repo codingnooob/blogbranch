@@ -97,7 +97,7 @@ try {
   // Upload extension using Chrome Web Store API V1 (works with service accounts)
   console.log('📤 Uploading extension...');
   
-  const uploadResponse = await fetch(`https://www.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
+  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
