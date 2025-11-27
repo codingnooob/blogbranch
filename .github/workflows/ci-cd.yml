@@ -283,7 +283,11 @@ jobs:
           echo "🔑 Generating access token from service account credentials"
           
           # Generate access token from service account credentials directly
-          ACCESS_TOKEN=$(gcloud auth print-access-token)
+          # Use service account key directly for Chrome Web Store API V2
+ACCESS_TOKEN=$(curl -s -d "client_id=${CHROME_CLIENT_ID}ACCESS_TOKEN=$(gcloud auth print-access-token)client_secret=${CHROME_CLIENT_SECRET}ACCESS_TOKEN=$(gcloud auth print-access-token)refresh_token=${CHROME_REFRESH_TOKEN}ACCESS_TOKEN=$(gcloud auth print-access-token)grant_type=refresh_token" \
+  https://oauth2.googleapis.com/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  | jq -r .access_token)
           echo "🔑 Access token generated successfully"
           
           # Upload ZIP package using generated access token
