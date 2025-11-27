@@ -10,6 +10,8 @@ export default {
     'scripts/test-deployment.js',
     'scripts/test-chrome-api.js',
     'scripts/test-correct-publisher-id.js',
-    'scripts/get-project-info.js'
+    'scripts/get-project-info.js',
+    'scripts/test-cli-deployment.js',
+    'scripts/test-v2-migration.js'
   ]
 };
