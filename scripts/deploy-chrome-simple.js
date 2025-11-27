@@ -78,10 +78,7 @@ try {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt
-    })
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
   });
 
   if (!tokenResponse.ok) {
