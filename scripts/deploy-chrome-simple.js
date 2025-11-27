@@ -33,13 +33,24 @@ try {
   // Use Google Auth Library for proper JWT handling
   console.log('🔐 Getting access token using Google Auth Library...');
   
+  // Parse and validate service account key
+  let serviceAccountData;
+  try {
+    serviceAccountData = JSON.parse(config.serviceAccountKey);
+    console.log('✅ Service account key parsed successfully');
+    console.log(`   Service account: ${serviceAccountData.client_email}`);
+  } catch (error) {
+    console.error('❌ Failed to parse service account key:', error.message);
+    throw new Error('Invalid service account key format');
+  }
+  
   const { GoogleAuth } = await import('google-auth-library');
   
   const auth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/chromewebstore'],
     credentials: {
-      client_email: JSON.parse(config.serviceAccountKey).client_email,
-      private_key: JSON.parse(config.serviceAccountKey).private_key,
+      client_email: serviceAccountData.client_email,
+      private_key: serviceAccountData.private_key,
     }
   });
   
@@ -48,21 +59,34 @@ try {
 
   console.log('✅ Access token obtained successfully');
 
-  // Read ZIP file
-  const zipData = fs.readFileSync(config.zipPath);
+  // Check if we should use CRX or ZIP format
+  const crxPath = config.zipPath.replace('.zip', '.crx');
+  let uploadData, contentType, uploadType;
+
+  if (fs.existsSync(crxPath)) {
+    console.log('📦 Using CRX file for upload (Chrome Web Store preferred format)');
+    uploadData = fs.readFileSync(crxPath);
+    contentType = 'application/x-chrome-extension';
+    uploadType = 'CRX';
+  } else {
+    console.log('📦 Using ZIP file for upload');
+    uploadData = fs.readFileSync(config.zipPath);
+    contentType = 'application/zip';
+    uploadType = 'ZIP';
+  }
 
   // Upload extension using Chrome Web Store API V2 (correct service account endpoints)
-  console.log('📤 Uploading extension...');
+  console.log(`📤 Uploading extension (${uploadType} format)...`);
   
   // First, initiate upload with V2 API
   const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/v2/publishers/${config.publisherId}/items/${config.extensionId}:upload`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/zip',
+      'Content-Type': contentType,
       'x-goog-upload-protocol': 'raw'
     },
-    body: zipData
+    body: uploadData
   });
 
   if (!uploadResponse.ok) {
@@ -77,7 +101,7 @@ try {
   // Publish extension using V2 API
   console.log('🚀 Publishing extension...');
   
-  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/v2/publishers/${config.publisherId}/items/${config.extensionId}/publish`, {
+  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/v2/publishers/${config.publisherId}/items/${config.extensionId}:publish`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
