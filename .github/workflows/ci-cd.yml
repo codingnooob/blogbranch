@@ -277,7 +277,6 @@ jobs:
 
       - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
-        continue-on-error: true
         run: |
           echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
@@ -299,6 +298,7 @@ jobs:
           CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        continue-on-error: true
 
       - name: Deploy to Chrome Web Store (chrome-webstore-upload - Fallback)
         id: chrome-deploy-fallback
