@@ -5,12 +5,13 @@ import fs from 'fs';
 // Configuration from environment variables
 const config = {
   extensionId: process.env.CHROME_EXTENSION_ID,
+  publisherId: process.env.CHROME_PUBLISHER_ID,
   zipPath: process.env.CHROME_ZIP_PATH,
   serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY
 };
 
 // Validate required environment variables
-const requiredVars = ['extensionId', 'zipPath', 'serviceAccountKey'];
+const requiredVars = ['extensionId', 'publisherId', 'zipPath', 'serviceAccountKey'];
 const missingVars = requiredVars.filter(varName => !config[varName]);
 
 if (missingVars.length > 0) {
@@ -20,6 +21,7 @@ if (missingVars.length > 0) {
 
 console.log('🚀 Starting Chrome Web Store deployment with Service Account...');
 console.log(`📦 Extension ID: ${config.extensionId}`);
+console.log(`🏢 Publisher ID: ${config.publisherId}`);
 console.log(`📁 ZIP Path: ${config.zipPath}`);
 
 try {
@@ -53,7 +55,7 @@ try {
   console.log('📤 Uploading extension...');
   
   // First, initiate upload with V2 API
-  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/v2/publishers/*/items/*:upload`, {
+  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/v2/publishers/${config.publisherId}/items/${config.extensionId}:upload`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -75,7 +77,7 @@ try {
   // Publish extension using V2 API
   console.log('🚀 Publishing extension...');
   
-  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/v2/publishers/*/items/${uploadResult.itemId}/publish`, {
+  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/v2/publishers/${config.publisherId}/items/${config.extensionId}/publish`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
