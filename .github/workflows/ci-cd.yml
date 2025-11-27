@@ -277,6 +277,7 @@ jobs:
 
       - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
+        continue-on-error: true
         run: |
           echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
@@ -321,7 +322,13 @@ jobs:
         if: success()
         run: |
           echo "🚀 Store Deployment Successful"
-          echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (API V2)"
+          if [ "${{ steps.chrome-deploy.outcome }}" == "success" ]; then
+            echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (API V2)"
+          elif [ "${{ steps.chrome-deploy-fallback.outcome }}" == "success" ]; then
+            echo "✅ Chrome Web Store: ZIP file uploaded via chrome-webstore-upload (OAuth)"
+          else
+            echo "⚠️ Chrome Web Store: Deployment may have failed - check logs"
+          fi
           echo "✅ Firefox Add-ons: XPI submitted for review"
           echo "Release: ${{ github.event.release.tag_name }}"
           echo "Check individual store dashboards for approval status"
