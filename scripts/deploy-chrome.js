@@ -64,12 +64,12 @@ try {
     }
   }
 
-  // Upload and publish extension using CRX file
+  // Upload and publish extension using CRX file with explicit CLI flags
   console.log('📤 Uploading and publishing extension...');
-  const deployCmd = `npx chrome-webstore-upload-cli --source "${crxPath}"`;
+  const deployCmd = `npx chrome-webstore-upload-cli --source "${crxPath}" --extension-id "${config.extensionId}" --client-id "${config.clientId}" --client-secret "${config.clientSecret}" --refresh-token "${config.refreshToken}"`;
   
   await new Promise((resolve, reject) => {
-    exec(deployCmd, { env: { ...process.env, ...config } }, (error, stdout, stderr) => {
+    exec(deployCmd, (error, stdout, stderr) => {
       if (error) {
         console.error('❌ Deployment failed:', error.message);
         if (stderr) console.error('📋 Error output:', stderr);
