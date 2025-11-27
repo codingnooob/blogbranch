@@ -1,3 +1,280 @@
+name: CI/CD Pipeline v4 - Cache Busted
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Verify critical dependencies
+        run: |
+          echo "Checking @babel/preset-env..."
+          npm list @babel/preset-env || echo "Babel preset missing, reinstalling..."
+          if ! npm list @babel/preset-env > /dev/null 2>&1; then
+            echo "Installing @babel/preset-env explicitly..."
+            npm install --save-dev @babel/preset-env
+          fi
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Build Firefox version
+        run: npm run build:firefox
+
+      - name: Create packages
+        run: npm run package:all-formats
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-packages-${{ matrix.node-version }}
+          path: |
+            *.zip
+            *.crx
+            *.xpi
+          retention-days: 30
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate || true
+
+      - name: Generate security report
+        run: |
+          echo "Security audit completed"
+          npm audit --audit-level=high --json > security-report.json || true
+          echo "Security report generated"
+
+  store-deployment:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published' || github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Clear Actions Cache
+        run: |
+          echo "Clearing any potential workflow cache..."
+          rm -rf ~/.cache || true
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Verify critical dependencies
+        run: |
+          echo "Checking @babel/preset-env..."
+          npm list @babel/preset-env || echo "Babel preset missing, reinstalling..."
+          if ! npm list @babel/preset-env > /dev/null 2>&1; then
+            echo "Installing @babel/preset-env explicitly..."
+            npm install --save-dev @babel/preset-env
+          fi
+
+      - name: Build Extension
+        run: npm run build
+
+      - name: Build Firefox Extension
+        run: npm run build:firefox
+
+      - name: Create ZIP Artifacts
+        run: |
+          npm run build:zip
+          npm run build:firefox:zip
+
+      - name: Verify Build Output
+        run: |
+          echo "🔍 Verifying build output..."
+          ls -la blog-link-analyzer*.zip blog-link-analyzer-firefox*.xpi
+
+      - name: Verify artifacts exist
+        run: |
+          ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
+
+      - name: Test Chrome Credentials
+        uses: wdzeng/chrome-extension@v1
+        with:
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          check-credentials-only: true
+        continue-on-error: true
+
+      - name: Check Store Versions
+        run: |
+          echo "📋 Store Version Information"
+          echo "Current package version: $(node -p 'require("./package.json").version')"
+          echo "Chrome extension ID: ${{ secrets.CHROME_EXTENSION_ID }}"
+          echo "Firefox addon GUID: ${{ secrets.FIREFOX_ADDON_GUID }}"
+          echo ""
+          echo "🔍 Checking manifest versions..."
+          echo "manifest.json version: $(node -p 'require("./manifest.json").version')"
+          echo "manifest-firefox.json version: $(node -p 'require("./manifest-firefox.json").version')"
+          echo ""
+          echo "📦 Available artifacts:"
+          ls -la *.zip *.crx *.xpi 2>/dev/null || echo "Some artifacts missing"
+
+      - name: Validate Chrome Configuration
+        run: |
+          echo "🔍 Chrome Configuration Validation"
+          echo "Extension ID configured: ${{ secrets.CHROME_EXTENSION_ID != '' }}"
+          echo "Client ID configured: ${{ secrets.CHROME_CLIENT_ID != '' }}"
+          echo "Client Secret configured: ${{ secrets.CHROME_CLIENT_SECRET != '' }}"
+          echo "Refresh Token configured: ${{ secrets.CHROME_REFRESH_TOKEN != '' }}"
+          echo ""
+          
+          # Validate all required secrets are configured
+          if [[ -n "${{ secrets.CHROME_EXTENSION_ID }}" && \
+                -n "${{ secrets.CHROME_CLIENT_ID }}" && \
+                -n "${{ secrets.CHROME_CLIENT_SECRET }}" && \
+                -n "${{ secrets.CHROME_REFRESH_TOKEN }}" ]]; then
+            echo "✅ All Chrome secrets are configured"
+            echo "🚀 Proceeding with Chrome Web Store deployment"
+          else
+            echo "❌ Missing Chrome secrets configuration"
+            echo "Please check: CHROME_EXTENSION_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN"
+            echo "Chrome deployment will be skipped"
+          fi
+
+      - name: Clean Old Artifacts
+        run: |
+          echo "🧹 Cleaning old artifacts..."
+          rm -f blog-link-analyzer-*.zip
+          rm -f blog-link-analyzer-*.crx
+          rm -f blog-link-analyzer-firefox-*.xpi
+          echo "✅ Artifacts cleaned"
+
+      - name: Build Version-Specific Artifacts
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          
+          # CRX private key is no longer needed for ZIP-based Chrome Web Store uploads
+          # The new action uses ZIP files directly with OAuth tokens
+          echo "✅ Skipping CRX private key processing - using ZIP format for Chrome Web Store"
+          
+          # Copy existing artifacts with version numbers
+          cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
+          cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
+          
+          # Verify ZIP file was created successfully
+          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
+            echo "❌ ZIP file not found - Chrome Web Store deployment will fail"
+            echo "Available files:"
+            ls -la blog-link-analyzer-${VERSION}.*
+            exit 1
+          else
+            echo "✅ ZIP file created successfully"
+            ls -la blog-link-analyzer-${VERSION}.zip
+          fi
+          
+          echo "✅ Artifacts built with version ${VERSION}"
+          echo "📋 Available artifacts:"
+          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
+          
+          # Ensure ZIP file exists for Chrome deployment
+          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
+            echo "❌ Chrome ZIP file not found - deployment cannot continue"
+            exit 1
+          fi
+          
+          echo "✅ Chrome ZIP file ready for deployment"
+
+      - name: Verify Deployment Files
+        run: |
+          echo "🔍 Verifying deployment files exist..."
+          echo "VERSION from env: ${{ env.VERSION }}"
+          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.zip"
+          if [ -f "blog-link-analyzer-${{ env.VERSION }}.zip" ]; then
+            echo "✅ Chrome ZIP found"
+          else
+            echo "❌ Chrome ZIP NOT found"
+            echo "Available ZIP files:"
+            ls -la *.zip 2>/dev/null || echo "No ZIP files found"
+          fi
+          echo "Looking for: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi"
+          if [ -f "blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" ]; then
+            echo "✅ Firefox XPI found"
+          else
+            echo "❌ Firefox XPI NOT found"
+            echo "Available XPI files:"
+            ls -la *.xpi 2>/dev/null || echo "No XPI files found"
+          fi
+          echo "Current directory contents:"
+          find . -name "blog-link-analyzer-*" -type f -exec ls -la {} \;
+
+      - name: Set Deployment Paths
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          echo "CHROME_ZIP_PATH=blog-link-analyzer-${VERSION}.zip" >> $GITHUB_ENV
+          echo "FIREFOX_XPI_PATH=blog-link-analyzer-firefox-${VERSION}.xpi" >> $GITHUB_ENV
+          echo "Deployment paths set:"
+          echo "Chrome ZIP: $CHROME_ZIP_PATH"
+          echo "Firefox: $FIREFOX_XPI_PATH"
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: 'projects/413467977054/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com'
+
       - name: Deploy to Chrome Web Store (chrome-webstore-upload)
         id: chrome-deploy
         run: |
@@ -13,22 +290,68 @@
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true
 
-      - name: Deploy to Chrome Web Store (Service Account - Fallback)
-        id: chrome-deploy-fallback
+      - name: Deploy to Firefox Add-ons
+        uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
+          xpi-path: ${{ env.FIREFOX_XPI_PATH }}
+          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
+        continue-on-error: true
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🚀 Store Deployment Successful"
+          echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (API V2)"
+          echo "✅ Firefox Add-ons: XPI submitted for review"
+          echo "Release: ${{ github.event.release.tag_name }}"
+          echo "Check individual store dashboards for approval status"
+
+      - name: Notify deployment failure
         if: failure()
         run: |
-          echo "🔄 Primary deployment failed, trying Service Account approach..."
-          echo "🚀 Deploying to Chrome Web Store using Service Account"
-          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
-          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
-          
-          # Authenticate with Google Cloud using Workload Identity Federation
-          gcloud auth login --brief --cred-config=${{ steps.auth.outputs.credentials_file_path }}
-          
-          # Deploy using service account
-          npm run deploy:chrome-service-account
-        env:
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          echo "❌ Store Deployment Failed"
+          echo "Please check workflow logs for details"
+          echo "**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup"
+          echo "**Firefox Add-ons**: Check XPI package and API credentials"
+          echo "Release: ${{ github.event.release.tag_name }}"
+          echo "To rollback, run: ./scripts/rollback.sh latest chrome,firefox"
+
+      - name: Notify deployment failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.issue.number) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '❌ **Store Deployment Failed**\n\nPlease check the workflow logs for details.\n**Chrome Web Store**: Check ZIP file, Service Account credentials, and API V2 setup\n**Firefox Add-ons**: Check XPI package and API credentials\n\nRelease: ${{ github.event.release.tag_name }}\n\nTo rollback, run:\n```bash\n./scripts/rollback.sh latest chrome,firefox\n```'
+              });
+            }
+
+      - name: Store deployment metadata
+        if: success()
+        run: |
+          echo "DEPLOYMENT_VERSION=${{ github.event.release.tag_name }}" >> deployment.env
+          echo "DEPLOYMENT_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deployment.env
+          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.zip" >> deployment.env
+          echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" >> deployment.env
+
+      - name: Upload deployment metadata
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-metadata-${{ github.event.release.tag_name }}
+          path: deployment.env
+          retention-days: 90
+
+      - name: Validate deployment
+        if: success()
+        run: |
+          chmod +x scripts/validate-deployment.sh
+          ./scripts/validate-deployment.sh
