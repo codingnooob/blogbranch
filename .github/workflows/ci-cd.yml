@@ -175,6 +175,7 @@ jobs:
         run: |
           echo "🔍 Chrome Configuration Validation"
           echo "Extension ID configured: ${{ secrets.CHROME_EXTENSION_ID != '' }}"
+          echo "Publisher ID configured: ${{ secrets.CHROME_PUBLISHER_ID != '' }}"
           echo "Client ID configured: ${{ secrets.CHROME_CLIENT_ID != '' }}"
           echo "Client Secret configured: ${{ secrets.CHROME_CLIENT_SECRET != '' }}"
           echo "Refresh Token configured: ${{ secrets.CHROME_REFRESH_TOKEN != '' }}"
@@ -182,6 +183,7 @@ jobs:
           
           # Validate all required secrets are configured
           if [[ -n "${{ secrets.CHROME_EXTENSION_ID }}" && \
+                -n "${{ secrets.CHROME_PUBLISHER_ID }}" && \
                 -n "${{ secrets.CHROME_CLIENT_ID }}" && \
                 -n "${{ secrets.CHROME_CLIENT_SECRET }}" && \
                 -n "${{ secrets.CHROME_REFRESH_TOKEN }}" ]]; then
@@ -189,7 +191,7 @@ jobs:
             echo "🚀 Proceeding with Chrome Web Store deployment"
           else
             echo "❌ Missing Chrome secrets configuration"
-            echo "Please check: CHROME_EXTENSION_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN"
+            echo "Please check: CHROME_EXTENSION_ID, CHROME_PUBLISHER_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN"
             echo "Chrome deployment will be skipped"
           fi
 
@@ -201,41 +203,61 @@ jobs:
           rm -f blog-link-analyzer-firefox-*.xpi
           echo "✅ Artifacts cleaned"
 
+      - name: Install GPG for Key Decryption
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg
+
+      - name: Decrypt CRX Private Key
+        run: |
+          echo "🔐 Decrypting CRX private key..."
+          gpg --batch --yes --decrypt --quiet \
+               --passphrase "${{ secrets.CHROME_CRX_GPG_PASSPHRASE }}" \
+               --output blog-link-analyzer.pem blog-link-analyzer.pem.gpg
+          
+          if [ -f "blog-link-analyzer.pem" ]; then
+            echo "✅ CRX private key decrypted successfully"
+            echo "CHROME_CRX_PRIVATE_KEY_PATH=blog-link-analyzer.pem" >> $GITHUB_ENV
+          else
+            echo "❌ Failed to decrypt CRX private key"
+            exit 1
+          fi
+
       - name: Build Version-Specific Artifacts
         run: |
           VERSION=$(node -p 'require("./package.json").version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
-          # Create ZIP package for Chrome Web Store deployment
-          echo "🔧 Creating ZIP package for Chrome Web Store..."
-          npm run build:zip
+          # Create packages for Chrome Web Store deployment
+          echo "🔧 Creating packages for Chrome Web Store..."
+          npm run package:all-formats
           
           # Copy existing artifacts with version numbers
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
-          # Verify ZIP file exists with version number
-          if [ -f "blog-link-analyzer-${VERSION}.zip" ]; then
-            echo "✅ ZIP file created and versioned"
-            ls -la blog-link-analyzer-${VERSION}.zip
+          # Verify CRX file exists with version number
+          if [ -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "✅ CRX file created and versioned"
+            ls -la blog-link-analyzer-${VERSION}.crx
           else
-            echo "❌ ZIP file not found - Chrome Web Store deployment will fail"
-            echo "Available ZIP files:"
-            find . -name "*.zip" -type f -exec ls -la {} \;
+            echo "❌ CRX file not found - Chrome Web Store deployment will fail"
+            echo "Available CRX files:"
+            find . -name "*.crx" -type f -exec ls -la {} \;
             exit 1
           fi
           
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
-          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
+          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
           
-          # Ensure ZIP file exists for Chrome deployment
-          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
-            echo "❌ Chrome ZIP file not found - deployment cannot continue"
+          # Ensure CRX file exists for Chrome deployment
+          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "❌ Chrome CRX file not found - deployment cannot continue"
             exit 1
           fi
           
-          echo "✅ Chrome ZIP file ready for deployment"
+          echo "✅ Chrome CRX file ready for deployment"
 
       - name: Verify Deployment Files
         run: |
@@ -264,9 +286,11 @@ jobs:
         run: |
           VERSION=$(node -p 'require("./package.json").version')
           echo "CHROME_ZIP_PATH=blog-link-analyzer-${VERSION}.zip" >> $GITHUB_ENV
+          echo "CHROME_CRX_PATH=blog-link-analyzer-${VERSION}.crx" >> $GITHUB_ENV
           echo "FIREFOX_XPI_PATH=blog-link-analyzer-firefox-${VERSION}.xpi" >> $GITHUB_ENV
           echo "Deployment paths set:"
           echo "Chrome ZIP: $CHROME_ZIP_PATH"
+          echo "Chrome CRX: $CHROME_CRX_PATH"
           echo "Firefox: $FIREFOX_XPI_PATH"
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
@@ -278,9 +302,10 @@ jobs:
       - name: Deploy to Chrome Web Store (OAuth2 - Primary)
         id: chrome-deploy
         run: |
-          echo "🚀 Deploying to Chrome Web Store using OAuth2 (Primary Method)"
+          echo "🚀 Deploying to Chrome Web Store using OAuth2 with CRX upload (Primary Method)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
+          echo "📦 CRX will be generated from ZIP for upload"
           
           # Install chrome-webstore-upload-cli for V2 API compatibility
           echo "📦 Installing chrome-webstore-upload-cli..."
@@ -304,6 +329,7 @@ jobs:
           fi
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -344,14 +370,26 @@ jobs:
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
         continue-on-error: true
 
+      - name: Secure Cleanup of Decrypted Key
+        if: always()
+        run: |
+          echo "🧹 Securely cleaning up decrypted CRX private key..."
+          if [ -f "blog-link-analyzer.pem" ]; then
+            # Securely shred the decrypted key file
+            shred -u blog-link-analyzer.pem
+            echo "✅ Decrypted key file securely removed"
+          else
+            echo "ℹ️ No decrypted key file found for cleanup"
+          fi
+
       - name: Notify deployment success
         if: success()
         run: |
           echo "🚀 Store Deployment Successful"
           if [ "${{ steps.chrome-deploy.outputs.CHROME_DEPLOY_SUCCESS }}" == "true" ]; then
-            echo "✅ Chrome Web Store: ZIP file uploaded via OAuth2 (Primary)"
+            echo "✅ Chrome Web Store: CRX file uploaded via OAuth2 (Primary)"
           elif [ "${{ steps.chrome-deploy-fallback.outcome }}" == "success" ]; then
-            echo "✅ Chrome Web Store: ZIP file uploaded via Service Account (Fallback)"
+            echo "✅ Chrome Web Store: CRX file uploaded via Service Account (Fallback)"
           else
             echo "⚠️ Chrome Web Store: Deployment may have failed - check logs"
           fi
