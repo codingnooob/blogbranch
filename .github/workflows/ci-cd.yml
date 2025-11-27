@@ -206,48 +206,50 @@ jobs:
           VERSION=$(node -p 'require("./package.json").version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           
-          # CRX private key is no longer needed for ZIP-based Chrome Web Store uploads
-          # The new action uses ZIP files directly with OAuth tokens
-          echo "✅ Skipping CRX private key processing - using ZIP format for Chrome Web Store"
+          # Create CRX package for Chrome Web Store deployment
+          echo "🔧 Creating CRX package for Chrome Web Store..."
+          npm run package:crx
           
           # Copy existing artifacts with version numbers
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
-          # Verify ZIP file was created successfully
-          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
-            echo "❌ ZIP file not found - Chrome Web Store deployment will fail"
-            echo "Available files:"
-            ls -la blog-link-analyzer-${VERSION}.*
-            exit 1
+          # Find and copy CRX file with version number
+          CRX_FILE=$(find . -name "blog-link-analyzer-*.crx" -type f | head -1)
+          if [ -n "$CRX_FILE" ]; then
+            cp "$CRX_FILE" "blog-link-analyzer-${VERSION}.crx"
+            echo "✅ CRX file created and versioned"
+            ls -la blog-link-analyzer-${VERSION}.crx
           else
-            echo "✅ ZIP file created successfully"
-            ls -la blog-link-analyzer-${VERSION}.zip
+            echo "❌ CRX file not found - Chrome Web Store deployment will fail"
+            echo "Available CRX files:"
+            find . -name "*.crx" -type f -exec ls -la {} \;
+            exit 1
           fi
           
           echo "✅ Artifacts built with version ${VERSION}"
           echo "📋 Available artifacts:"
-          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
+          ls -la blog-link-analyzer-${VERSION}.zip blog-link-analyzer-${VERSION}.crx blog-link-analyzer-firefox-${VERSION}.xpi 2>/dev/null || echo "Some artifacts may be missing"
           
-          # Ensure ZIP file exists for Chrome deployment
-          if [ ! -f "blog-link-analyzer-${VERSION}.zip" ]; then
-            echo "❌ Chrome ZIP file not found - deployment cannot continue"
+          # Ensure CRX file exists for Chrome deployment
+          if [ ! -f "blog-link-analyzer-${VERSION}.crx" ]; then
+            echo "❌ Chrome CRX file not found - deployment cannot continue"
             exit 1
           fi
           
-          echo "✅ Chrome ZIP file ready for deployment"
+          echo "✅ Chrome CRX file ready for deployment"
 
       - name: Verify Deployment Files
         run: |
           echo "🔍 Verifying deployment files exist..."
           echo "VERSION from env: ${{ env.VERSION }}"
-          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.zip"
-          if [ -f "blog-link-analyzer-${{ env.VERSION }}.zip" ]; then
-            echo "✅ Chrome ZIP found"
+          echo "Looking for: blog-link-analyzer-${{ env.VERSION }}.crx"
+          if [ -f "blog-link-analyzer-${{ env.VERSION }}.crx" ]; then
+            echo "✅ Chrome CRX found"
           else
-            echo "❌ Chrome ZIP NOT found"
-            echo "Available ZIP files:"
-            ls -la *.zip 2>/dev/null || echo "No ZIP files found"
+            echo "❌ Chrome CRX NOT found"
+            echo "Available CRX files:"
+            ls -la *.crx 2>/dev/null || echo "No CRX files found"
           fi
           echo "Looking for: blog-link-analyzer-firefox-${{ env.VERSION }}.xpi"
           if [ -f "blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" ]; then
@@ -263,10 +265,10 @@ jobs:
       - name: Set Deployment Paths
         run: |
           VERSION=$(node -p 'require("./package.json").version')
-          echo "CHROME_ZIP_PATH=blog-link-analyzer-${VERSION}.zip" >> $GITHUB_ENV
+          echo "CHROME_CRX_PATH=blog-link-analyzer-${VERSION}.crx" >> $GITHUB_ENV
           echo "FIREFOX_XPI_PATH=blog-link-analyzer-firefox-${VERSION}.xpi" >> $GITHUB_ENV
           echo "Deployment paths set:"
-          echo "Chrome ZIP: $CHROME_ZIP_PATH"
+          echo "Chrome CRX: $CHROME_CRX_PATH"
           echo "Firefox: $FIREFOX_XPI_PATH"
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
@@ -280,7 +282,7 @@ jobs:
         run: |
           echo "🚀 Deploying to Chrome Web Store using OAuth2 (Primary Method)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
-          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
+          echo "📁 CRX Path: $CHROME_CRX_PATH"
           
           # Install dependencies and deploy with OAuth2
           npm run deploy:chrome
@@ -295,7 +297,7 @@ jobs:
           fi
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          CHROME_CRX_PATH: ${{ env.CHROME_CRX_PATH }}
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
@@ -322,6 +324,7 @@ jobs:
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          CHROME_CRX_PATH: ${{ env.CHROME_CRX_PATH }}
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -379,7 +382,7 @@ jobs:
         run: |
           echo "DEPLOYMENT_VERSION=${{ github.event.release.tag_name }}" >> deployment.env
           echo "DEPLOYMENT_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deployment.env
-          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.zip" >> deployment.env
+          echo "CHROME_PACKAGE=blog-link-analyzer-${{ env.VERSION }}.crx" >> deployment.env
           echo "FIREFOX_PACKAGE=blog-link-analyzer-firefox-${{ env.VERSION }}.xpi" >> deployment.env
 
       - name: Upload deployment metadata

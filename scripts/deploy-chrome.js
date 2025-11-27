@@ -9,11 +9,11 @@ const config = {
   clientId: process.env.CHROME_CLIENT_ID,
   clientSecret: process.env.CHROME_CLIENT_SECRET,
   refreshToken: process.env.CHROME_REFRESH_TOKEN,
-  zipPath: process.env.CHROME_ZIP_PATH
+  crxPath: process.env.CHROME_CRX_PATH
 };
 
 // Validate required environment variables
-const requiredVars = ['extensionId', 'clientId', 'clientSecret', 'refreshToken', 'zipPath'];
+const requiredVars = ['extensionId', 'clientId', 'clientSecret', 'refreshToken', 'crxPath'];
 const missingVars = requiredVars.filter(varName => !config[varName]);
 
 if (missingVars.length > 0) {
@@ -23,12 +23,12 @@ if (missingVars.length > 0) {
 
 console.log('🚀 Starting Chrome Web Store deployment...');
 console.log(`📦 Extension ID: ${config.extensionId}`);
-console.log(`📁 ZIP Path: ${config.zipPath}`);
+console.log(`📁 CRX Path: ${config.crxPath}`);
 
 try {
-  // Check if ZIP file exists
-  if (!fs.existsSync(config.zipPath)) {
-    throw new Error(`ZIP file not found: ${config.zipPath}`);
+  // Check if CRX file exists
+  if (!fs.existsSync(config.crxPath)) {
+    throw new Error(`CRX file not found: ${config.crxPath}`);
   }
 
   // Create Chrome Web Store client
@@ -47,7 +47,7 @@ try {
 
   // Upload extension
   console.log('📤 Uploading extension...');
-  const uploadResponse = await store.uploadExisting(config.zipPath, token);
+  const uploadResponse = await store.uploadExisting(config.crxPath, token);
   
   console.log('✅ Upload successful');
   console.log('📋 Upload response:', JSON.stringify(uploadResponse, null, 2));
