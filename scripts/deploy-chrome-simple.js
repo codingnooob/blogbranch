@@ -28,66 +28,21 @@ try {
     throw new Error(`ZIP file not found: ${config.zipPath}`);
   }
 
-  // Parse service account key
-  let serviceAccountKey;
-  try {
-    serviceAccountKey = JSON.parse(config.serviceAccountKey);
-  } catch (error) {
-    throw new Error('Invalid service account key format');
-  }
-
-  // Create JWT token for Chrome Web Store API
-  const header = {
-    alg: 'RS256',
-    typ: 'JWT'
-  };
-
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: serviceAccountKey.client_email,
-    scope: 'https://www.googleapis.com/auth/chromewebstore',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  };
-
-  // Import crypto for JWT signing
-  const { createSign } = await import('crypto');
+  // Use Google Auth Library for proper JWT handling
+  console.log('🔐 Getting access token using Google Auth Library...');
   
-  // Base64url encoding function
-  const base64urlEncode = (str) => {
-    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  };
-
-  // Create JWT
-  const encodedHeader = base64urlEncode(Buffer.from(JSON.stringify(header)).toString('base64'));
-  const encodedPayload = base64urlEncode(Buffer.from(JSON.stringify(payload)).toString('base64'));
-  const jwtInput = `${encodedHeader}.${encodedPayload}`;
+  const { GoogleAuth } = await import('google-auth-library');
   
-  // Sign JWT
-  const sign = createSign(serviceAccountKey.private_key);
-  const signature = sign.update(jwtInput).sign('base64');
-  const encodedSignature = base64urlEncode(signature);
-  
-  const jwt = `${jwtInput}.${encodedSignature}`;
-
-  // Exchange JWT for access token
-  console.log('🔐 Getting access token...');
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+  const auth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/chromewebstore'],
+    credentials: {
+      client_email: JSON.parse(config.serviceAccountKey).client_email,
+      private_key: JSON.parse(config.serviceAccountKey).private_key,
+    }
   });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  const accessToken = tokenData.access_token;
+  
+  const client = await auth.getClient();
+  const accessToken = await client.getAccessToken();
 
   console.log('✅ Access token obtained successfully');
 
