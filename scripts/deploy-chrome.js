@@ -39,9 +39,25 @@ try {
   process.env.CLIENT_SECRET = config.clientSecret;
   process.env.REFRESH_TOKEN = config.refreshToken;
 
-  // Upload and publish extension in one command
+  // Check if we need to generate CRX from ZIP
+  const crxPath = config.zipPath.replace('.zip', '.crx');
+  
+  // Generate CRX file if it doesn't exist
+  if (!fs.existsSync(crxPath)) {
+    console.log('🔧 Generating CRX file from ZIP...');
+    // For now, we'll use the existing package-chrome.js script to generate CRX
+    const { execSync } = require('child_process');
+    try {
+      execSync('npm run package:chrome', { stdio: 'inherit' });
+    } catch (error) {
+      console.error('❌ Failed to generate CRX file:', error.message);
+      throw error;
+    }
+  }
+
+  // Upload and publish extension using CRX file
   console.log('📤 Uploading and publishing extension...');
-  const deployCmd = `npx chrome-webstore-upload-cli --source "${config.zipPath}"`;
+  const deployCmd = `npx chrome-webstore-upload-cli --source "${crxPath}"`;
   
   await new Promise((resolve, reject) => {
     exec(deployCmd, { env: { ...process.env, ...config } }, (error, stdout, stderr) => {
