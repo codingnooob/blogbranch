@@ -46,9 +46,18 @@ try {
   if (!fs.existsSync(crxPath)) {
     console.log('🔧 Generating CRX file from ZIP...');
     // For now, we'll use the existing package-chrome.js script to generate CRX
-    const { execSync } = require('child_process');
     try {
-      execSync('npm run package:chrome', { stdio: 'inherit' });
+      await new Promise((resolve, reject) => {
+        exec('npm run package:chrome', (error, stdout, stderr) => {
+          if (error) {
+            console.error('❌ Failed to generate CRX file:', error.message);
+            reject(error);
+          } else {
+            console.log('✅ CRX file generated successfully');
+            resolve();
+          }
+        });
+      });
     } catch (error) {
       console.error('❌ Failed to generate CRX file:', error.message);
       throw error;
