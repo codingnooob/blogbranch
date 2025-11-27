@@ -275,9 +275,26 @@ jobs:
           workload_identity_provider: 'projects/413467977054/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com'
 
-      - name: Deploy to Chrome Web Store (chrome-webstore-upload)
+      - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
         run: |
+          echo "🚀 Deploying to Chrome Web Store using Service Account (API V2)"
+          echo "📦 Extension ID: $CHROME_EXTENSION_ID"
+          echo "📁 ZIP Path: $CHROME_ZIP_PATH"
+          
+          # Install dependencies and deploy with service account
+          npm run deploy:chrome-service-account
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        continue-on-error: true
+
+      - name: Deploy to Chrome Web Store (chrome-webstore-upload - Fallback)
+        id: chrome-deploy-fallback
+        if: failure()
+        run: |
+          echo "🔄 Service account failed, trying chrome-webstore-upload approach..."
           echo "🚀 Deploying to Chrome Web Store using chrome-webstore-upload package"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
@@ -290,7 +307,6 @@ jobs:
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-        continue-on-error: true
 
       - name: Deploy to Firefox Add-ons
         uses: wdzeng/firefox-addon@v1
