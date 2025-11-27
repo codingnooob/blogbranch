@@ -1,24 +1,23 @@
 #!/usr/bin/env node
 
 import fs from 'fs';
-import path from 'path';
 
 console.log('🧪 Testing Chrome Web Store Deployment Solutions');
 console.log('='.repeat(50));
 
 // Test 1: Check if chrome-webstore-upload package is available
 try {
-  const chromeWebstoreUpload = await import('chrome-webstore-upload');
+  await import('chrome-webstore-upload');
   console.log('✅ chrome-webstore-upload package is available');
-} catch (error) {
+} catch {
   console.log('❌ chrome-webstore-upload package not found');
 }
 
 // Test 2: Check if google-auth-library is available
 try {
-  const { GoogleAuth } = await import('google-auth-library');
+  await import('google-auth-library');
   console.log('✅ google-auth-library package is available');
-} catch (error) {
+} catch {
   console.log('❌ google-auth-library package not found');
 }
 

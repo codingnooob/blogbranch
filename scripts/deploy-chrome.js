@@ -2,7 +2,6 @@
 
 import chromeWebstoreUpload from 'chrome-webstore-upload';
 import fs from 'fs';
-import path from 'path';
 
 // Configuration from environment variables
 const config = {

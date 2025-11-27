@@ -5,5 +5,8 @@ export default {
   testMatch: [
     '**/test*.js',
     '**/*.test.js'
+  ],
+  testPathIgnorePatterns: [
+    'scripts/test-deployment.js'
   ]
 };
