@@ -7,6 +7,7 @@ export default {
     '**/*.test.js'
   ],
   testPathIgnorePatterns: [
-    'scripts/test-deployment.js'
+    'scripts/test-deployment.js',
+    'scripts/test-chrome-api.js'
   ]
 };
