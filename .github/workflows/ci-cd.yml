@@ -278,15 +278,16 @@ jobs:
       - name: Deploy to Chrome Web Store (Service Account - Primary)
         id: chrome-deploy
         run: |
-          echo "🚀 Deploying to Chrome Web Store using Service Account (API V2)"
+          echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "📁 ZIP Path: $CHROME_ZIP_PATH"
           
           # Install dependencies and deploy with service account
-          npm run deploy:chrome-service-account
+          npm run deploy:chrome-simple
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_ZIP_PATH: ${{ env.CHROME_ZIP_PATH }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         continue-on-error: true
 

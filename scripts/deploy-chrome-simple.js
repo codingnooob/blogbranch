@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 
-import { GoogleAuth } from 'google-auth-library';
 import fs from 'fs';
 
 // Configuration from environment variables
 const config = {
   extensionId: process.env.CHROME_EXTENSION_ID,
   zipPath: process.env.CHROME_ZIP_PATH,
-  serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  workloadIdentityProvider: process.env.GOOGLE_WORKLOAD_IDENTITY_PROVIDER
+  serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY
 };
 
 // Validate required environment variables
-const requiredVars = ['extensionId', 'zipPath'];
+const requiredVars = ['extensionId', 'zipPath', 'serviceAccountKey'];
 const missingVars = requiredVars.filter(varName => !config[varName]);
 
 if (missingVars.length > 0) {
@@ -30,26 +28,76 @@ try {
     throw new Error(`ZIP file not found: ${config.zipPath}`);
   }
 
-  // Use service account directly for Chrome Web Store API
-  // Chrome Web Store API supports service account authentication
-  console.log('🔐 Setting up service account authentication...');
+  // Parse service account key
+  let serviceAccountKey;
+  try {
+    serviceAccountKey = JSON.parse(config.serviceAccountKey);
+  } catch (error) {
+    throw new Error('Invalid service account key format');
+  }
+
+  // Create JWT token for Chrome Web Store API
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT'
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: serviceAccountKey.client_email,
+    scope: 'https://www.googleapis.com/auth/chromewebstore',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  };
+
+  // Import crypto for JWT signing
+  const { createSign } = await import('crypto');
   
-  // Get access token using service account key
-  const { JWT } = await import('google-auth-library');
-  const jwt = new JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_SERVICE_ACCOUNT_KEY || await fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'),
-    scopes: ['https://www.googleapis.com/auth/chromewebstore']
+  // Base64url encoding function
+  const base64urlEncode = (str) => {
+    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  };
+
+  // Create JWT
+  const encodedHeader = base64urlEncode(Buffer.from(JSON.stringify(header)).toString('base64'));
+  const encodedPayload = base64urlEncode(Buffer.from(JSON.stringify(payload)).toString('base64'));
+  const jwtInput = `${encodedHeader}.${encodedPayload}`;
+  
+  // Sign JWT
+  const sign = createSign(serviceAccountKey.private_key);
+  const signature = sign.update(jwtInput).sign('base64');
+  const encodedSignature = base64urlEncode(signature);
+  
+  const jwt = `${jwtInput}.${encodedSignature}`;
+
+  // Exchange JWT for access token
+  console.log('🔐 Getting access token...');
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt
+    })
   });
-  
-  const accessToken = await jwt.getAccessToken();
-  
-  console.log('✅ Service account authentication successful');
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  const accessToken = tokenData.access_token;
+
+  console.log('✅ Access token obtained successfully');
 
   // Read ZIP file
   const zipData = fs.readFileSync(config.zipPath);
 
-  // Upload extension using Chrome Web Store API
+  // Upload extension using Chrome Web Store API V1 (works with service accounts)
   console.log('📤 Uploading extension...');
   
   const uploadResponse = await fetch(`https://www.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
@@ -71,32 +119,8 @@ try {
   console.log('✅ Upload successful');
   console.log('📋 Upload response:', JSON.stringify(uploadResult, null, 2));
 
-  // Publish extension to trusted testers first
-  console.log('🚀 Publishing to trusted testers...');
-  
-  const publishTestersResponse = await fetch(`https://chromewebstore.googleapis.com/chromewebstore/v1.1/items/${config.extensionId}/publish`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GOOGLE_API_KEY || ''
-    },
-    body: JSON.stringify({
-      target: 'trustedTesters'
-    })
-  });
-
-  if (!publishTestersResponse.ok) {
-    const errorText = await publishTestersResponse.text();
-    throw new Error(`Trusted testers publish failed: ${publishTestersResponse.status} ${publishTestersResponse.statusText} - ${errorText}`);
-  }
-
-  const publishTestersResult = await publishTestersResponse.json();
-  console.log('✅ Published to trusted testers successfully');
-  console.log('📋 Trusted testers response:', JSON.stringify(publishTestersResult, null, 2));
-
-  // Publish to all users
-  console.log('🚀 Publishing to all users...');
+  // Publish extension
+  console.log('🚀 Publishing extension...');
   
   const publishResponse = await fetch(`https://chromewebstore.googleapis.com/chromewebstore/v1.1/items/${config.extensionId}/publish`, {
     method: 'POST',
@@ -116,8 +140,8 @@ try {
   }
 
   const publishResult = await publishResponse.json();
-  console.log('✅ Published to all users successfully');
-  console.log('📋 Final publish response:', JSON.stringify(publishResult, null, 2));
+  console.log('✅ Published successfully');
+  console.log('📋 Publish response:', JSON.stringify(publishResult, null, 2));
 
   console.log('🎉 Chrome Web Store deployment completed successfully!');
 
