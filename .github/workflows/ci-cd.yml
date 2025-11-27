@@ -214,10 +214,8 @@ jobs:
           cp blog-link-analyzer.zip "blog-link-analyzer-${VERSION}.zip"
           cp blog-link-analyzer-firefox.xpi "blog-link-analyzer-firefox-${VERSION}.xpi"
           
-          # Find and copy CRX file with version number
-          CRX_FILE=$(find . -name "blog-link-analyzer-*.crx" -type f | head -1)
-          if [ -n "$CRX_FILE" ]; then
-            cp "$CRX_FILE" "blog-link-analyzer-${VERSION}.crx"
+          # Verify CRX file exists with version number
+          if [ -f "blog-link-analyzer-${VERSION}.crx" ]; then
             echo "✅ CRX file created and versioned"
             ls -la blog-link-analyzer-${VERSION}.crx
           else
