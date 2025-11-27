@@ -280,12 +280,16 @@ jobs:
         run: |
           echo "🔐 Using Workload Identity Federation for Chrome Web Store API V2"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
-          echo "🔑 Using service account credentials directly"
+          echo "🔑 Generating access token from service account credentials"
           
-          # Upload ZIP package using service account credentials directly
+          # Generate access token from service account credentials
+          ACCESS_TOKEN=$(gcloud auth print-access-token --impersonate-service-account=chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com)
+          echo "🔑 Access token generated successfully"
+          
+          # Upload ZIP package using generated access token
           UPLOAD_RESPONSE=$(curl -X POST \
             "https://chromewebstore.googleapis.com/upload/v2/items/$CHROME_EXTENSION_ID?uploadType=PACKAGE" \
-            -H "Authorization: Bearer $GOOGLE_APPLICATION_CREDENTIALS" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
             -H "x-goog-api-key: $CHROME_API_KEY" \
             -F "data=@$CHROME_ZIP_PATH" \
             -w "%{http_code}")
@@ -297,10 +301,10 @@ jobs:
             exit 1
           fi
           
-          # Publish the extension using service account credentials directly
+          # Publish the extension using generated access token
           PUBLISH_RESPONSE=$(curl -X POST \
             "https://chromewebstore.googleapis.com/publish/v2/items/$CHROME_EXTENSION_ID" \
-            -H "Authorization: Bearer $GOOGLE_APPLICATION_CREDENTIALS" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
             -H "x-goog-api-key: $CHROME_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{"target": "TRUSTED_TESTERS"}' \
