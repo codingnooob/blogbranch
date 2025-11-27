@@ -281,6 +281,9 @@ jobs:
           echo "🔍 Running Chrome API diagnostic tool..."
           CHROME_PUBLISHER_ID="${{ secrets.CHROME_PUBLISHER_ID }}" node scripts/test-chrome-api.js
           
+          echo "🧪 Testing with correct publisher ID format..."
+          node scripts/test-correct-publisher-id.js
+          
           echo "🚀 Deploying to Chrome Web Store using Service Account (Direct JWT)"
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "🏢 Publisher ID: $CHROME_PUBLISHER_ID"
