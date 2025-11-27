@@ -41,6 +41,7 @@ if (!/^\d+$/.test(config.publisherId)) {
   console.log('⚠️  Publisher ID should be a numeric project number (Google Cloud project number)');
   console.log(`   Current publisher ID: ${config.publisherId}`);
   console.log(`   Expected format: 123456789012 (numeric)`);
+  console.log(`   For project 'blogbranch', the correct number is: 413467977054`);
 } else {
   console.log('✅ Publisher ID format appears correct (numeric)');
 }
