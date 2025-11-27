@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
+
 
 // Configuration from environment variables
 const config = {

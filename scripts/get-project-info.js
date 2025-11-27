@@ -15,7 +15,7 @@ try {
     console.log(`✅ Project Number: ${projectNumber}`);
     console.log(`   This should be used as CHROME_PUBLISHER_ID`);
   } catch (error) {
-    console.log('❌ Could not get project number with gcloud');
+    console.log('❌ Could not get project number with gcloud:', error.message);
     console.log('   Make sure gcloud is installed and authenticated');
   }
   
@@ -24,7 +24,7 @@ try {
     const projectId = execSync('gcloud projects describe blogbranch --format="value(projectId)"', { encoding: 'utf8' }).trim();
     console.log(`✅ Project ID: ${projectId}`);
   } catch (error) {
-    console.log('❌ Could not get project ID with gcloud');
+    console.log('❌ Could not get project ID with gcloud:', error.message);
   }
   
   console.log('\n🎯 Manual Instructions:');

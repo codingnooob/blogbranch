@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
+
 
 // Test with the CORRECT publisher ID (numeric project number)
 const config = {

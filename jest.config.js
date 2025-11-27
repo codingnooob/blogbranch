@@ -8,6 +8,8 @@ export default {
   ],
   testPathIgnorePatterns: [
     'scripts/test-deployment.js',
-    'scripts/test-chrome-api.js'
+    'scripts/test-chrome-api.js',
+    'scripts/test-correct-publisher-id.js',
+    'scripts/get-project-info.js'
   ]
 };
