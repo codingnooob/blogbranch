@@ -282,8 +282,8 @@ jobs:
           echo "📦 Extension ID: $CHROME_EXTENSION_ID"
           echo "🔑 Generating access token from service account credentials"
           
-          # Generate access token from service account credentials
-          ACCESS_TOKEN=$(gcloud auth print-access-token --impersonate-service-account=chrome-webstore-deployer@blogbranch.iam.gserviceaccount.com)
+          # Generate access token from service account credentials directly
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
           echo "🔑 Access token generated successfully"
           
           # Upload ZIP package using generated access token
