@@ -49,11 +49,12 @@ try {
   // Read ZIP file
   const zipData = fs.readFileSync(config.zipPath);
 
-  // Upload extension using Chrome Web Store API V1 (works with service accounts)
+  // Upload extension using Chrome Web Store API V2 (correct service account endpoints)
   console.log('📤 Uploading extension...');
   
-  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/chromewebstore/v1.1/items/${config.extensionId}`, {
-    method: 'PUT',
+  // First, initiate upload with V2 API
+  const uploadResponse = await fetch(`https://chromewebstore.googleapis.com/upload/v2/publishers/*/items/*:upload`, {
+    method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/zip',
@@ -71,15 +72,14 @@ try {
   console.log('✅ Upload successful');
   console.log('📋 Upload response:', JSON.stringify(uploadResult, null, 2));
 
-  // Publish extension
+  // Publish extension using V2 API
   console.log('🚀 Publishing extension...');
   
-  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/chromewebstore/v1.1/items/${config.extensionId}/publish`, {
+  const publishResponse = await fetch(`https://chromewebstore.googleapis.com/v2/publishers/*/items/${uploadResult.itemId}/publish`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GOOGLE_API_KEY || ''
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       target: 'default'
