@@ -1,6 +1,6 @@
 {
   "name": "blog-link-analyzer",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "description": "Detects blog posts and extracts linked blog content with titles and authors",
   "main": "background/service-worker.js",
   "scripts": {
@@ -19,7 +19,7 @@
     "package:all": "npm run package && npm run package:firefox",
     "package:all-formats": "npm run package && npm run package:firefox",
     "package:crx": "node scripts/package-chrome.js",
-    "deploy:chrome": "node scripts/deploy-chrome.js",
+    "deploy:chrome": "chrome-webstore-upload-cli",
     "deploy:chrome-service-account": "node scripts/deploy-chrome-service-account.js",
     "deploy:chrome-simple": "node scripts/deploy-chrome-simple.js"
   },
@@ -45,7 +45,7 @@
     "@types/firefox-webext-browser": "^143.0.0",
     "archiver": "^7.0.1",
     "babel-loader": "^10.0.0",
-    "chrome-webstore-upload": "^4.0.3",
+    "chrome-webstore-upload-cli": "^3.5.0",
     "eslint": "^9.39.1",
     "glob": "^10.5.0",
     "google-auth-library": "^10.5.0",

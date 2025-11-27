@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import chromeWebstoreUpload from 'chrome-webstore-upload';
+import { exec } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 
 // Configuration from environment variables
 const config = {
@@ -31,50 +32,60 @@ try {
     throw new Error(`ZIP file not found: ${config.zipPath}`);
   }
 
-  // Create Chrome Web Store client
-  const store = chromeWebstoreUpload({
-    extensionId: config.extensionId,
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
-    refreshToken: config.refreshToken
-  });
-
   console.log('🔐 Authenticating with Chrome Web Store API...');
 
-  // Fetch token once and reuse for both operations
-  const token = await store.fetchToken();
-  console.log('✅ Authentication successful');
+  // Use chrome-webstore-upload-cli for V2 API compatibility
+  const uploadCmd = `npx chrome-webstore-upload-cli upload ${config.zipPath} ${config.extensionId}`;
+  const publishCmd = `npx chrome-webstore-upload-cli publish ${config.extensionId}`;
 
   // Upload extension
   console.log('📤 Uploading extension...');
-  const uploadResponse = await store.uploadExisting(config.zipPath, token);
-  
-  console.log('✅ Upload successful');
-  console.log('📋 Upload response:', JSON.stringify(uploadResponse, null, 2));
+  await new Promise((resolve, reject) => {
+    exec(uploadCmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error('❌ Upload failed:', error.message);
+        reject(error);
+      } else {
+        console.log('✅ Upload successful');
+        console.log('📋 Upload output:', stdout);
+        resolve();
+      }
+    });
+  });
 
   // Publish extension to trusted testers first
   console.log('🚀 Publishing to trusted testers...');
-  const publishResponse = await store.publish('trustedTesters', token);
-  
-  console.log('✅ Published to trusted testers successfully');
-  console.log('📋 Publish response:', JSON.stringify(publishResponse, null, 2));
+  await new Promise((resolve, reject) => {
+    exec(publishCmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error('❌ Trusted testers publish failed:', error.message);
+        reject(error);
+      } else {
+        console.log('✅ Published to trusted testers successfully');
+        console.log('📋 Publish output:', stdout);
+        resolve();
+      }
+    });
+  });
 
-  // If trusted testers publish succeeds, publish to default
+  // Publish to all users
   console.log('🚀 Publishing to all users...');
-  const defaultPublishResponse = await store.publish('default', token);
-  
-  console.log('✅ Published to all users successfully');
-  console.log('📋 Final publish response:', JSON.stringify(defaultPublishResponse, null, 2));
+  await new Promise((resolve, reject) => {
+    exec(publishCmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error('❌ Final publish failed:', error.message);
+        reject(error);
+      } else {
+        console.log('✅ Published to all users successfully');
+        console.log('📋 Final publish output:', stdout);
+        resolve();
+      }
+    });
+  });
 
   console.log('🎉 Chrome Web Store deployment completed successfully!');
 
 } catch (error) {
   console.error('❌ Deployment failed:', error.message);
-  
-  // Provide more detailed error information
-  if (error.response) {
-    console.error('📋 Error response:', JSON.stringify(error.response.data, null, 2));
-  }
-  
   process.exit(1);
 }
